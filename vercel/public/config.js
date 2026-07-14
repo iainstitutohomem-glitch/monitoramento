@@ -1,1 +1,1 @@
-window.RADAR_API_URL = "";
+window.RADAR_API_URL = "";\n

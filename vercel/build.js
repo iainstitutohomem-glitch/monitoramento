@@ -7,5 +7,6 @@ fs.mkdirSync(publicDir, { recursive: true });
 
 fs.copyFileSync(path.join(root, "app", "static", "index.html"), path.join(publicDir, "index.html"));
 
+const configPath = path.join(publicDir, "config.js");
 const apiUrl = process.env.RADAR_API_URL || "";
 fs.writeFileSync(configPath, `window.RADAR_API_URL = ${JSON.stringify(apiUrl)};\\n`, "utf8");
