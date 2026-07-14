@@ -1,1 +1,1 @@
-window.RADAR_API_URL = "https://monitoramento.institutohomem.com.br";
+window.RADAR_API_URL = "https://api-monitoramento.institutohomem.com.br";
