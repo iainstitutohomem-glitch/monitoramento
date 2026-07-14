@@ -1,0 +1,8 @@
+{
+  "name": "radar-online",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "node vercel-build.js"
+  }
+}
