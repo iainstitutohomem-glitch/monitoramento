@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.env
+storage/*.db
+storage/*.db-*
+storage/audio/*
+storage/buffer/*
+!storage/audio/.gitkeep
+!storage/buffer/.gitkeep

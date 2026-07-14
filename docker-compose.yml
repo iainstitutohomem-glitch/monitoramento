@@ -1,0 +1,33 @@
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      RADAR_DB: /app/storage/radar.db
+      RADAR_PUBLIC_URL: http://localhost:8000
+    volumes:
+      - ./storage:/app/storage
+
+  radio-worker:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    environment:
+      RADAR_DB: /app/storage/radar.db
+      RADAR_CONCURRENCY: "4"
+      RADAR_CHUNK_SECONDS: "30"
+      RADAR_PUBLIC_URL: http://localhost:8000
+    volumes:
+      - ./storage:/app/storage
+
+  online-worker:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "app.online_worker"]
+    environment:
+      RADAR_DB: /app/storage/radar.db
+      RADAR_ONLINE_INTERVAL_SECONDS: "900"
+    volumes:
+      - ./storage:/app/storage

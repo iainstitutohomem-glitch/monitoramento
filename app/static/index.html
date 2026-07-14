@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Radar Online - Instituto Homem</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101417;
+      --panel: #171d21;
+      --panel-2: #1e252a;
+      --line: #2c363d;
+      --text: #eef3f6;
+      --muted: #99a5ad;
+      --blue: #2f9bff;
+      --green: #66dc99;
+      --red: #ff7474;
+      --gold: #e5bd64;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 20% 0%, rgba(47,155,255,.18), transparent 30%),
+        linear-gradient(180deg, #11171a 0%, var(--bg) 42%, #0d1114 100%);
+      color: var(--text);
+      font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial;
+    }
+    .shell { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
+    aside { border-right: 1px solid var(--line); background: rgba(18,23,27,.86); padding: 22px; }
+    .brand strong { display: block; font-size: 18px; letter-spacing: .2px; }
+    .brand span { color: var(--muted); font-size: 12px; }
+    nav { display: grid; gap: 8px; margin-top: 28px; }
+    nav button, .btn {
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px 12px;
+      text-align: left;
+      cursor: pointer;
+    }
+    nav button.active, .btn.primary {
+      border-color: rgba(47,155,255,.55);
+      background: linear-gradient(135deg, rgba(47,155,255,.22), rgba(102,220,153,.12));
+    }
+    main { padding: 26px; }
+    header { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:22px; }
+    h1 { margin:0; font-size: 28px; letter-spacing: 0; }
+    h2 { margin:0; font-size: 16px; }
+    p { color: var(--muted); margin: 6px 0 0; }
+    .grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:14px; }
+    .panel {
+      background: rgba(23,29,33,.9);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .panel-head { padding: 16px; border-bottom: 1px solid var(--line); display:flex; justify-content:space-between; gap:12px; align-items:center; }
+    .panel-body { padding: 16px; }
+    .metric strong { display:block; font-size: 28px; margin-top: 8px; }
+    .metric span, .meta { color: var(--muted); font-size: 12px; }
+    .stack { display:grid; gap:10px; }
+    .item { background: rgba(255,255,255,.025); border:1px solid var(--line); border-radius:8px; padding:12px; }
+    .item h3 { margin: 4px 0; font-size: 14px; }
+    .pill { display:inline-flex; border-radius:999px; padding:3px 8px; background:rgba(47,155,255,.16); color:#72b7ff; font-size:12px; margin-right:5px; }
+    .pill.green { background:rgba(102,220,153,.14); color:var(--green); }
+    .pill.red { background:rgba(255,116,116,.14); color:var(--red); }
+    .pill.gold { background:rgba(229,189,100,.14); color:var(--gold); }
+    .section { display:none; }
+    .section.active { display:block; }
+    .wide { grid-column: span 2; }
+    input {
+      width: 100%;
+      background: #11171a;
+      border: 1px solid var(--line);
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px;
+    }
+    @media (max-width: 980px) {
+      .shell { grid-template-columns: 1fr; }
+      aside { position: static; }
+      .grid { grid-template-columns: 1fr; }
+      .wide { grid-column: auto; }
+      header { display:block; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <div class="brand">
+        <strong>Radar Online</strong>
+        <span>Instituto Homem</span>
+      </div>
+      <nav>
+        <button class="active" data-view="dashboard">Painel 24h</button>
+        <button data-view="radio">Rádio e TV</button>
+        <button data-view="online">Resultados Online</button>
+        <button data-view="settings">Operação</button>
+      </nav>
+    </aside>
+    <main>
+      <header>
+        <div>
+          <h1>Central online de monitoramento</h1>
+          <p>Equipe, termos, web, rádio e achados em uma operação 24h.</p>
+        </div>
+        <button class="btn primary" id="refresh">Atualizar agora</button>
+      </header>
+
+      <section class="section active" id="dashboard">
+        <div class="grid">
+          <div class="panel metric"><div class="panel-body"><span>Termos ativos</span><strong id="mTerms">0</strong></div></div>
+          <div class="panel metric"><div class="panel-body"><span>Rádios com stream</span><strong id="mRadios">0</strong></div></div>
+          <div class="panel metric"><div class="panel-body"><span>Achados de rádio</span><strong id="mHits">0</strong></div></div>
+          <div class="panel metric"><div class="panel-body"><span>Resultados online</span><strong id="mOnline">0</strong></div></div>
+          <div class="panel wide">
+            <div class="panel-head"><div><h2>Status dos workers</h2><p>Processos 24h que mantêm a operação viva.</p></div></div>
+            <div class="panel-body"><div class="stack" id="workers"></div></div>
+          </div>
+          <div class="panel wide">
+            <div class="panel-head"><div><h2>Últimos achados de rádio</h2><p>Termos detectados nas emissoras monitoradas.</p></div></div>
+            <div class="panel-body"><div class="stack" id="latestHits"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" id="radio">
+        <div class="panel">
+          <div class="panel-head"><div><h2>Rádios monitoradas</h2><p>Streams ativos que os workers podem ouvir.</p></div></div>
+          <div class="panel-body"><div class="stack" id="radioList"></div></div>
+        </div>
+      </section>
+
+      <section class="section" id="online">
+        <div class="panel">
+          <div class="panel-head">
+            <div><h2>Resultados online encontrados</h2><p>Busca por termos em fontes abertas da internet.</p></div>
+            <button class="btn primary" id="runOnline">Buscar agora</button>
+          </div>
+          <div class="panel-body"><div class="stack" id="onlineList"></div></div>
+        </div>
+      </section>
+
+      <section class="section" id="settings">
+        <div class="panel">
+          <div class="panel-head"><div><h2>Operação 24h</h2><p>Para produção: API + worker + banco + storage + domínio.</p></div></div>
+          <div class="panel-body">
+            <div class="stack">
+              <div class="item"><span class="pill green">API</span><h3>Painel online</h3><p>Este painel lê dados do backend hospedado.</p></div>
+              <div class="item"><span class="pill green">Worker</span><h3>Rádio 24h</h3><p>Workers separados escutam rádios em paralelo e salvam achados no banco.</p></div>
+              <div class="item"><span class="pill gold">Escala</span><h3>Mais rádios</h3><p>Aumente RADAR_CONCURRENCY ou suba mais workers para cobrir toda a lista.</p></div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/config.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const html = (v) => String(v ?? "").replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;" }[c]));
+    const API_BASE = String(window.RADAR_API_URL || "").replace(/\/$/, "");
+    const apiUrl = (url) => url.startsWith("/api") ? `${API_BASE}${url}` : url;
+
+    document.querySelectorAll("nav button").forEach(button => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("nav button").forEach(item => item.classList.remove("active"));
+        document.querySelectorAll(".section").forEach(item => item.classList.remove("active"));
+        button.classList.add("active");
+        $(button.dataset.view).classList.add("active");
+      });
+    });
+
+    function item(title, meta, body, extra = "") {
+      return `<article class="item">${meta}<h3>${html(title)}</h3><p>${html(body || "")}</p>${extra}</article>`;
+    }
+
+    async function loadJson(url, options) {
+      const response = await fetch(apiUrl(url), options);
+      if (!response.ok) throw new Error(await response.text());
+      return response.json();
+    }
+
+    async function refresh() {
+      const [dash, hits, online, radios] = await Promise.all([
+        loadJson("/api/dashboard"),
+        loadJson("/api/radio-hits"),
+        loadJson("/api/online-mentions"),
+        loadJson("/api/radios")
+      ]);
+      $("mTerms").textContent = dash.terms;
+      $("mRadios").textContent = dash.radios;
+      $("mHits").textContent = dash.radio_hits;
+      $("mOnline").textContent = dash.online_mentions;
+      $("workers").innerHTML = dash.workers.map(w => item(
+        w.worker_id,
+        `<span class="pill ${w.status === "running" ? "green" : "gold"}">${html(w.status)}</span>`,
+        `${w.current_task || ""} · último sinal: ${w.last_seen}`
+      )).join("") || `<div class="item"><span class="pill red">offline</span><h3>Nenhum worker ativo</h3><p>Suba o serviço radio-worker para monitoramento 24h.</p></div>`;
+      $("latestHits").innerHTML = hits.slice(0, 8).map(h => item(
+        `${h.radio_name} · ${h.term}`,
+        `<span class="pill green">Detectado</span><span class="pill">${html(h.city)}</span>`,
+        h.transcript,
+        h.audio_path ? `<p><a href="${html(h.audio_path)}" target="_blank">Abrir áudio</a></p>` : ""
+      )).join("") || `<div class="item"><h3>Nenhum achado de rádio ainda</h3><p>Os workers vão preencher esta área automaticamente.</p></div>`;
+      $("onlineList").innerHTML = online.map(o => item(
+        o.title,
+        `<span class="pill">Online</span><span class="pill green">${html(o.term)}</span>`,
+        `${o.source || ""} ${o.published || ""}`,
+        o.url ? `<p><a href="${html(o.url)}" target="_blank">Abrir notícia</a></p>` : ""
+      )).join("") || `<div class="item"><h3>Nenhum resultado online ainda</h3><p>Clique em buscar agora ou agende a busca no servidor.</p></div>`;
+      $("radioList").innerHTML = radios.map(r => item(
+        r.name,
+        `<span class="pill ${r.stream ? "green" : "red"}">${r.stream ? "stream" : "sem stream"}</span><span class="pill">${html(r.status)}</span>`,
+        `${r.city || ""} ${r.frequency || ""}`
+      )).join("");
+    }
+
+    $("refresh").addEventListener("click", refresh);
+    $("runOnline").addEventListener("click", async () => {
+      await loadJson("/api/search-online", { method: "POST" });
+      await refresh();
+    });
+
+    refresh();
+    setInterval(refresh, 10000);
+  </script>
+</body>
+</html>

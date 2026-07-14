@@ -1,0 +1,23 @@
+[
+  {
+    "term": "Instituto Homem",
+    "group": "Marca",
+    "match": "Exata",
+    "status": "Ativo",
+    "priority": "Alta"
+  },
+  {
+    "term": "sa?de masculina",
+    "group": "Oportunidade",
+    "match": "Ampla",
+    "status": "Teste",
+    "priority": "M?dia"
+  },
+  {
+    "term": "disfun??o er?til",
+    "group": "Tratamento",
+    "match": "Ampla",
+    "status": "Teste",
+    "priority": "M?dia"
+  }
+]
