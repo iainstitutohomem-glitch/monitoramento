@@ -2,13 +2,13 @@ services:
   api:
     build: .
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     environment:
       RADAR_DB: /app/storage/radar.db
       RADAR_PUBLIC_URL: http://localhost:8000
     volumes:
-      - ./storage:/app/storage
+      - radar_storage:/app/storage
 
   radio-worker:
     build: .
@@ -20,7 +20,7 @@ services:
       RADAR_CHUNK_SECONDS: "30"
       RADAR_PUBLIC_URL: http://localhost:8000
     volumes:
-      - ./storage:/app/storage
+      - radar_storage:/app/storage
 
   online-worker:
     build: .
@@ -30,4 +30,7 @@ services:
       RADAR_DB: /app/storage/radar.db
       RADAR_ONLINE_INTERVAL_SECONDS: "900"
     volumes:
-      - ./storage:/app/storage
+      - radar_storage:/app/storage
+
+volumes:
+  radar_storage:
