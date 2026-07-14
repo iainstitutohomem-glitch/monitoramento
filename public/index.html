@@ -3,88 +3,167 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Radar Online - Instituto Homem</title>
+  <title>Radar de Imprensa - Instituto Homem</title>
   <style>
     :root {
       color-scheme: dark;
-      --bg: #101417;
-      --panel: #171d21;
-      --panel-2: #1e252a;
-      --line: #2c363d;
-      --text: #eef3f6;
-      --muted: #99a5ad;
-      --blue: #2f9bff;
-      --green: #66dc99;
-      --red: #ff7474;
-      --gold: #e5bd64;
+      --bg: #0b0f12;
+      --side: #121a21;
+      --panel: #151b20;
+      --panel-2: #10161b;
+      --panel-3: #1b232a;
+      --line: #28333c;
+      --text: #f3f7fa;
+      --muted: #8e9aa4;
+      --blue: #3b9dff;
+      --cyan: #28d7d2;
+      --green: #4dd782;
+      --yellow: #e7b94f;
+      --red: #ff6b72;
+      --shadow: 0 24px 70px rgba(0, 0, 0, .34);
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
       background:
-        radial-gradient(circle at 20% 0%, rgba(47,155,255,.18), transparent 30%),
-        linear-gradient(180deg, #11171a 0%, var(--bg) 42%, #0d1114 100%);
+        linear-gradient(135deg, rgba(59,157,255,.10), transparent 30%),
+        linear-gradient(180deg, #12171b 0%, var(--bg) 44%, #070a0c 100%);
       color: var(--text);
-      font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial;
+      font: 14px/1.45 Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial, sans-serif;
     }
-    .shell { display: grid; grid-template-columns: 260px 1fr; min-height: 100vh; }
-    aside { border-right: 1px solid var(--line); background: rgba(18,23,27,.86); padding: 22px; }
-    .brand strong { display: block; font-size: 18px; letter-spacing: .2px; }
-    .brand span { color: var(--muted); font-size: 12px; }
-    nav { display: grid; gap: 8px; margin-top: 28px; }
+    a { color: #8cc8ff; text-decoration: none; }
+    .shell { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      border-right: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(18,26,33,.96), rgba(12,18,23,.98));
+      padding: 24px 14px;
+    }
+    .brand { padding: 0 6px 22px; border-bottom: 1px solid var(--line); }
+    .brand strong { display: block; font-size: 17px; letter-spacing: .2px; }
+    .brand span { color: #6db8ff; font-size: 11px; font-weight: 800; letter-spacing: 1.8px; text-transform: uppercase; }
+    nav { display: grid; gap: 8px; margin-top: 24px; }
     nav button, .btn {
-      border: 1px solid var(--line);
-      background: var(--panel-2);
+      min-height: 40px;
+      border: 1px solid transparent;
+      background: transparent;
       color: var(--text);
       border-radius: 8px;
       padding: 10px 12px;
       text-align: left;
       cursor: pointer;
+      font: inherit;
+      font-weight: 800;
     }
-    nav button.active, .btn.primary {
-      border-color: rgba(47,155,255,.55);
-      background: linear-gradient(135deg, rgba(47,155,255,.22), rgba(102,220,153,.12));
+    nav button { color: #cbd5dc; }
+    nav button.active {
+      border-color: rgba(59,157,255,.45);
+      background: linear-gradient(135deg, rgba(59,157,255,.18), rgba(40,215,210,.08));
+      box-shadow: inset 3px 0 0 var(--blue);
+      color: #fff;
     }
-    main { padding: 26px; }
-    header { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; margin-bottom:22px; }
-    h1 { margin:0; font-size: 28px; letter-spacing: 0; }
-    h2 { margin:0; font-size: 16px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: var(--panel-3);
+      border-color: var(--line);
+      white-space: nowrap;
+    }
+    .btn.primary {
+      border-color: rgba(59,157,255,.68);
+      background: linear-gradient(135deg, #2d92ff, #29c7d3);
+      color: white;
+      box-shadow: 0 10px 26px rgba(45,146,255,.24);
+    }
+    main { padding: 26px; min-width: 0; }
+    header { display:flex; justify-content:space-between; gap:18px; align-items:flex-start; margin-bottom:22px; }
+    .eyebrow { color: #71baff; font-size: 11px; font-weight: 900; letter-spacing: 1.7px; text-transform: uppercase; }
+    h1 { margin: 4px 0 0; font-size: 30px; letter-spacing: 0; }
+    h2 { margin:0; font-size: 15px; letter-spacing: .1px; }
+    h3 { margin: 5px 0 2px; font-size: 14px; }
     p { color: var(--muted); margin: 6px 0 0; }
     .grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:14px; }
     .panel {
-      background: rgba(23,29,33,.9);
+      background: linear-gradient(180deg, rgba(24,31,36,.96), rgba(18,24,29,.96));
       border: 1px solid var(--line);
       border-radius: 8px;
       overflow: hidden;
+      box-shadow: var(--shadow);
     }
-    .panel-head { padding: 16px; border-bottom: 1px solid var(--line); display:flex; justify-content:space-between; gap:12px; align-items:center; }
+    .panel-head {
+      min-height: 70px;
+      padding: 16px;
+      border-bottom: 1px solid var(--line);
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:center;
+      background: rgba(255,255,255,.015);
+    }
     .panel-body { padding: 16px; }
-    .metric strong { display:block; font-size: 28px; margin-top: 8px; }
-    .metric span, .meta { color: var(--muted); font-size: 12px; }
+    .metric .panel-body { min-height: 110px; display: grid; align-content: space-between; }
+    .metric strong { display:block; font-size: 34px; line-height: 1; margin-top: 12px; }
+    .metric span, .meta { color: var(--muted); font-size: 12px; font-weight: 800; }
     .stack { display:grid; gap:10px; }
-    .item { background: rgba(255,255,255,.025); border:1px solid var(--line); border-radius:8px; padding:12px; }
-    .item h3 { margin: 4px 0; font-size: 14px; }
-    .pill { display:inline-flex; border-radius:999px; padding:3px 8px; background:rgba(47,155,255,.16); color:#72b7ff; font-size:12px; margin-right:5px; }
-    .pill.green { background:rgba(102,220,153,.14); color:var(--green); }
-    .pill.red { background:rgba(255,116,116,.14); color:var(--red); }
-    .pill.gold { background:rgba(229,189,100,.14); color:var(--gold); }
+    .item {
+      background: rgba(255,255,255,.026);
+      border:1px solid var(--line);
+      border-radius:8px;
+      padding:12px;
+    }
+    .pill {
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      padding:3px 8px;
+      background:rgba(59,157,255,.15);
+      color:#86c6ff;
+      font-size:12px;
+      font-weight:800;
+      margin:0 5px 5px 0;
+    }
+    .pill.green { background:rgba(77,215,130,.14); color:var(--green); }
+    .pill.red { background:rgba(255,107,114,.14); color:var(--red); }
+    .pill.gold { background:rgba(231,185,79,.14); color:var(--yellow); }
     .section { display:none; }
     .section.active { display:block; }
     .wide { grid-column: span 2; }
-    input {
+    .full { grid-column: 1 / -1; }
+    input, select, textarea {
       width: 100%;
-      background: #11171a;
+      background: #0e1317;
       border: 1px solid var(--line);
       color: var(--text);
       border-radius: 8px;
-      padding: 10px;
+      padding: 11px 12px;
+      font: inherit;
+      outline: none;
     }
-    @media (max-width: 980px) {
+    input:focus, select:focus, textarea:focus { border-color: rgba(59,157,255,.78); box-shadow: 0 0 0 3px rgba(59,157,255,.12); }
+    textarea { min-height: 76px; resize: vertical; }
+    label { display:grid; gap:7px; color:var(--muted); font-size:12px; font-weight:900; }
+    form { display:grid; gap:12px; }
+    .form-grid { display:grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap:12px; }
+    .span-2 { grid-column: span 2; }
+    .toolbar { display:flex; justify-content:flex-end; align-items:center; gap:12px; flex-wrap:wrap; }
+    .notice { margin-right:auto; min-height:20px; color:var(--muted); font-size:12px; }
+    .notice.ok { color:var(--green); }
+    .notice.error { color:var(--red); }
+    .table { display:grid; gap:1px; background: var(--line); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+    .row { display:grid; grid-template-columns: 1.7fr .8fr .8fr .8fr .8fr; gap:10px; align-items:center; background:var(--panel-2); padding:12px; }
+    .row.head { color:var(--muted); font-size:11px; font-weight:900; text-transform:uppercase; background:#111820; }
+    @media (max-width: 1050px) {
       .shell { grid-template-columns: 1fr; }
-      aside { position: static; }
-      .grid { grid-template-columns: 1fr; }
-      .wide { grid-column: auto; }
+      aside { position: static; height: auto; }
+      .grid, .form-grid { grid-template-columns: 1fr; }
+      .wide, .full, .span-2 { grid-column: auto; }
       header { display:block; }
+      .row { grid-template-columns: 1fr; }
+      .row.head { display:none; }
     }
   </style>
 </head>
@@ -92,21 +171,24 @@
   <div class="shell">
     <aside>
       <div class="brand">
-        <strong>Radar Online</strong>
-        <span>Instituto Homem</span>
+        <strong>Radar de Imprensa</strong>
+        <span>Intelligence OS</span>
       </div>
       <nav>
-        <button class="active" data-view="dashboard">Painel 24h</button>
-        <button data-view="radio">Rádio e TV</button>
-        <button data-view="online">Resultados Online</button>
-        <button data-view="settings">Operação</button>
+        <button class="active" data-view="dashboard">Painel</button>
+        <button data-view="terms">Termos</button>
+        <button data-view="online">Resultados</button>
+        <button data-view="radio">Radio</button>
+        <button data-view="settings">Operacao</button>
       </nav>
     </aside>
+
     <main>
       <header>
         <div>
+          <div class="eyebrow">monitoramento 24h</div>
           <h1>Central online de monitoramento</h1>
-          <p>Equipe, termos, web, rádio e achados em uma operação 24h.</p>
+          <p>Termos, web, radio, workers e achados em uma operacao unica para a equipe.</p>
         </div>
         <button class="btn primary" id="refresh">Atualizar agora</button>
       </header>
@@ -114,24 +196,76 @@
       <section class="section active" id="dashboard">
         <div class="grid">
           <div class="panel metric"><div class="panel-body"><span>Termos ativos</span><strong id="mTerms">0</strong></div></div>
-          <div class="panel metric"><div class="panel-body"><span>Rádios com stream</span><strong id="mRadios">0</strong></div></div>
-          <div class="panel metric"><div class="panel-body"><span>Achados de rádio</span><strong id="mHits">0</strong></div></div>
+          <div class="panel metric"><div class="panel-body"><span>Radios com stream</span><strong id="mRadios">0</strong></div></div>
+          <div class="panel metric"><div class="panel-body"><span>Achados de radio</span><strong id="mHits">0</strong></div></div>
           <div class="panel metric"><div class="panel-body"><span>Resultados online</span><strong id="mOnline">0</strong></div></div>
           <div class="panel wide">
-            <div class="panel-head"><div><h2>Status dos workers</h2><p>Processos 24h que mantêm a operação viva.</p></div></div>
+            <div class="panel-head"><div><h2>Status dos workers</h2><p>Processos que mantem a operacao viva no servidor.</p></div></div>
             <div class="panel-body"><div class="stack" id="workers"></div></div>
           </div>
           <div class="panel wide">
-            <div class="panel-head"><div><h2>Últimos achados de rádio</h2><p>Termos detectados nas emissoras monitoradas.</p></div></div>
+            <div class="panel-head"><div><h2>Ultimos achados de radio</h2><p>Termos detectados nas emissoras monitoradas.</p></div></div>
             <div class="panel-body"><div class="stack" id="latestHits"></div></div>
           </div>
         </div>
       </section>
 
-      <section class="section" id="radio">
-        <div class="panel">
-          <div class="panel-head"><div><h2>Rádios monitoradas</h2><p>Streams ativos que os workers podem ouvir.</p></div></div>
-          <div class="panel-body"><div class="stack" id="radioList"></div></div>
+      <section class="section" id="terms">
+        <div class="grid">
+          <div class="panel full">
+            <div class="panel-head"><div><h2>Cadastrar termo</h2><p>A equipe pode alimentar e ajustar a base sem suporte tecnico.</p></div></div>
+            <div class="panel-body">
+              <form id="termForm">
+                <div class="form-grid">
+                  <label class="span-2">Termo
+                    <input id="termName" required placeholder="Ex.: Instituto Homem">
+                  </label>
+                  <label>Grupo
+                    <select id="termGroup">
+                      <option>Marca</option>
+                      <option>Tratamento</option>
+                      <option>Oportunidade</option>
+                      <option>Concorrente</option>
+                      <option>Negativo</option>
+                    </select>
+                  </label>
+                  <label>Status
+                    <select id="termStatus">
+                      <option selected>Ativo</option>
+                      <option>Teste</option>
+                      <option>Pausado</option>
+                    </select>
+                  </label>
+                  <label>Prioridade
+                    <select id="termPriority">
+                      <option selected>Alta</option>
+                      <option>Media</option>
+                      <option>Baixa</option>
+                    </select>
+                  </label>
+                  <label>Tipo
+                    <select id="termMatch">
+                      <option selected>Exata</option>
+                      <option>Ampla</option>
+                      <option>Combinada</option>
+                      <option>Exclusao</option>
+                    </select>
+                  </label>
+                  <label class="full">Observacao
+                    <textarea id="termNote" placeholder="Por que esse termo existe? Quando deve virar alerta?"></textarea>
+                  </label>
+                </div>
+                <div class="toolbar">
+                  <span class="notice" id="termNotice"></span>
+                  <button class="btn primary" type="submit">+ Adicionar termo</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div class="panel full">
+            <div class="panel-head"><div><h2>Biblioteca de termos</h2><p>Base atual usada pelas buscas online e pelo monitoramento de radio.</p></div></div>
+            <div class="panel-body"><div class="table" id="termsList"></div></div>
+          </div>
         </div>
       </section>
 
@@ -145,14 +279,58 @@
         </div>
       </section>
 
+      <section class="section" id="radio">
+        <div class="grid">
+          <div class="panel full">
+            <div class="panel-head"><div><h2>Cadastrar radio</h2><p>Adicione a emissora e cole o link direto do stream para o worker ouvir.</p></div></div>
+            <div class="panel-body">
+              <form id="radioForm">
+                <div class="form-grid">
+                  <label>Nome
+                    <input id="radioName" required placeholder="Ex.: 96FM">
+                  </label>
+                  <label>Cidade
+                    <input id="radioCity" placeholder="Ex.: Bauru">
+                  </label>
+                  <label>Frequencia
+                    <input id="radioFrequency" placeholder="Ex.: 96,9 FM">
+                  </label>
+                  <label>Status
+                    <select id="radioStatus">
+                      <option selected>Teste</option>
+                      <option>Ativa</option>
+                      <option>Pausada</option>
+                    </select>
+                  </label>
+                  <label class="span-2">Stream
+                    <input id="radioStream" placeholder="https://.../stream">
+                  </label>
+                  <label class="full">Observacao
+                    <textarea id="radioNote" placeholder="Contrato, Tudo Radio, rateio, origem do link ou pendencias"></textarea>
+                  </label>
+                </div>
+                <div class="toolbar">
+                  <span class="notice" id="radioNotice"></span>
+                  <button class="btn primary" type="submit">+ Adicionar radio</button>
+                </div>
+              </form>
+            </div>
+          </div>
+          <div class="panel full">
+            <div class="panel-head"><div><h2>Radios monitoradas</h2><p>Streams ativos que os workers podem ouvir.</p></div></div>
+            <div class="panel-body"><div class="stack" id="radioList"></div></div>
+          </div>
+        </div>
+      </section>
+
       <section class="section" id="settings">
         <div class="panel">
-          <div class="panel-head"><div><h2>Operação 24h</h2><p>Para produção: API + worker + banco + storage + domínio.</p></div></div>
+          <div class="panel-head"><div><h2>Operacao 24h</h2><p>API, worker de radio, worker online, banco e storage persistente.</p></div></div>
           <div class="panel-body">
             <div class="stack">
-              <div class="item"><span class="pill green">API</span><h3>Painel online</h3><p>Este painel lê dados do backend hospedado.</p></div>
-              <div class="item"><span class="pill green">Worker</span><h3>Rádio 24h</h3><p>Workers separados escutam rádios em paralelo e salvam achados no banco.</p></div>
-              <div class="item"><span class="pill gold">Escala</span><h3>Mais rádios</h3><p>Aumente RADAR_CONCURRENCY ou suba mais workers para cobrir toda a lista.</p></div>
+              <div class="item"><span class="pill green">API</span><h3>Painel online</h3><p>Este painel le dados do backend hospedado no Easypanel.</p></div>
+              <div class="item"><span class="pill green">Worker</span><h3>Radio 24h</h3><p>O worker escuta radios em paralelo, transcreve audio e salva achados no banco.</p></div>
+              <div class="item"><span class="pill gold">Escala</span><h3>Mais radios</h3><p>Aumente a concorrencia ou suba mais workers para cobrir toda a lista.</p></div>
             </div>
           </div>
         </div>
@@ -180,6 +358,12 @@
       return `<article class="item">${meta}<h3>${html(title)}</h3><p>${html(body || "")}</p>${extra}</article>`;
     }
 
+    function notice(id, message, ok = true) {
+      const el = $(id);
+      el.textContent = message;
+      el.className = `notice ${ok ? "ok" : "error"}`;
+    }
+
     async function loadJson(url, options) {
       const response = await fetch(apiUrl(url), options);
       if (!response.ok) throw new Error(await response.text());
@@ -187,11 +371,12 @@
     }
 
     async function refresh() {
-      const [dash, hits, online, radios] = await Promise.all([
+      const [dash, hits, online, radios, terms] = await Promise.all([
         loadJson("/api/dashboard"),
         loadJson("/api/radio-hits"),
         loadJson("/api/online-mentions"),
-        loadJson("/api/radios")
+        loadJson("/api/radios"),
+        loadJson("/api/terms")
       ]);
       $("mTerms").textContent = dash.terms;
       $("mRadios").textContent = dash.radios;
@@ -200,31 +385,85 @@
       $("workers").innerHTML = dash.workers.map(w => item(
         w.worker_id,
         `<span class="pill ${w.status === "running" ? "green" : "gold"}">${html(w.status)}</span>`,
-        `${w.current_task || ""} · último sinal: ${w.last_seen}`
-      )).join("") || `<div class="item"><span class="pill red">offline</span><h3>Nenhum worker ativo</h3><p>Suba o serviço radio-worker para monitoramento 24h.</p></div>`;
+        `${w.current_task || ""} - ultimo sinal: ${w.last_seen}`
+      )).join("") || `<div class="item"><span class="pill red">offline</span><h3>Nenhum worker ativo</h3><p>Suba os servicos radio-worker e online-worker no Easypanel.</p></div>`;
       $("latestHits").innerHTML = hits.slice(0, 8).map(h => item(
-        `${h.radio_name} · ${h.term}`,
+        `${h.radio_name} - ${h.term}`,
         `<span class="pill green">Detectado</span><span class="pill">${html(h.city)}</span>`,
         h.transcript,
-        h.audio_path ? `<p><a href="${html(h.audio_path)}" target="_blank">Abrir áudio</a></p>` : ""
-      )).join("") || `<div class="item"><h3>Nenhum achado de rádio ainda</h3><p>Os workers vão preencher esta área automaticamente.</p></div>`;
+        h.audio_path ? `<p><a href="${html(apiUrl(h.audio_path))}" target="_blank">Abrir audio</a></p>` : ""
+      )).join("") || `<div class="item"><h3>Nenhum achado de radio ainda</h3><p>Os workers vao preencher esta area automaticamente.</p></div>`;
       $("onlineList").innerHTML = online.map(o => item(
         o.title,
         `<span class="pill">Online</span><span class="pill green">${html(o.term)}</span>`,
         `${o.source || ""} ${o.published || ""}`,
-        o.url ? `<p><a href="${html(o.url)}" target="_blank">Abrir notícia</a></p>` : ""
-      )).join("") || `<div class="item"><h3>Nenhum resultado online ainda</h3><p>Clique em buscar agora ou agende a busca no servidor.</p></div>`;
+        o.url ? `<p><a href="${html(o.url)}" target="_blank">Abrir noticia</a></p>` : ""
+      )).join("") || `<div class="item"><h3>Nenhum resultado online ainda</h3><p>Clique em buscar agora ou aguarde o worker online.</p></div>`;
       $("radioList").innerHTML = radios.map(r => item(
         r.name,
         `<span class="pill ${r.stream ? "green" : "red"}">${r.stream ? "stream" : "sem stream"}</span><span class="pill">${html(r.status)}</span>`,
-        `${r.city || ""} ${r.frequency || ""}`
-      )).join("");
+        `${r.city || ""} ${r.frequency || ""}`,
+        r.stream ? `<p class="meta">${html(r.stream)}</p>` : ""
+      )).join("") || `<div class="item"><h3>Nenhuma radio cadastrada</h3><p>Adicione uma radio acima.</p></div>`;
+      $("termsList").innerHTML = `<div class="row head"><div>Termo</div><div>Grupo</div><div>Tipo</div><div>Status</div><div>Prioridade</div></div>` + terms.map(t => `
+        <div class="row">
+          <div><strong>${html(t.term)}</strong><p>${html(t.created_at || "")}</p></div>
+          <div><span class="pill">${html(t.group_name)}</span></div>
+          <div><span class="pill">${html(t.match_type)}</span></div>
+          <div><span class="pill ${t.status === "Ativo" ? "green" : "gold"}">${html(t.status)}</span></div>
+          <div><span class="pill gold">${html(t.priority)}</span></div>
+        </div>
+      `).join("");
     }
 
     $("refresh").addEventListener("click", refresh);
     $("runOnline").addEventListener("click", async () => {
       await loadJson("/api/search-online", { method: "POST" });
       await refresh();
+    });
+    $("termForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        await loadJson("/api/terms", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            term: $("termName").value.trim(),
+            group_name: $("termGroup").value,
+            match_type: $("termMatch").value,
+            status: $("termStatus").value,
+            priority: $("termPriority").value
+          })
+        });
+        $("termForm").reset();
+        notice("termNotice", "Termo adicionado.");
+        await refresh();
+      } catch (error) {
+        notice("termNotice", "Nao consegui adicionar este termo.", false);
+      }
+    });
+    $("radioForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        await loadJson("/api/radios", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: $("radioName").value.trim(),
+            city: $("radioCity").value.trim(),
+            frequency: $("radioFrequency").value.trim(),
+            status: $("radioStatus").value,
+            media_type: "Radio",
+            stream: $("radioStream").value.trim(),
+            note: $("radioNote").value.trim()
+          })
+        });
+        $("radioForm").reset();
+        notice("radioNotice", "Radio adicionada.");
+        await refresh();
+      } catch (error) {
+        notice("radioNotice", "Nao consegui adicionar esta radio.", false);
+      }
     });
 
     refresh();
