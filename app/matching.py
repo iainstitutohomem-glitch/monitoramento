@@ -45,7 +45,7 @@ def tokens(value: str) -> list[str]:
 def search_query(term: dict) -> str:
     value = term.get("term", "").strip()
     match_type = normalize(term.get("match_type", "Exata"))
-    exact_phrase = " ".join(tokens(value))
+    exact_phrase = normalize(value)
     if match_type == "exata" and " " in exact_phrase:
         return f'"{exact_phrase}"'
     return value
@@ -56,7 +56,7 @@ def term_matches(term: dict, text: str) -> bool:
     match_type = normalize(term.get("match_type", "Exata"))
     haystack = normalize(text)
     words = tokens(value)
-    needle = " ".join(words) if len(words) >= 2 else normalize(value)
+    needle = normalize(value) if match_type == "exata" else (" ".join(words) if len(words) >= 2 else normalize(value))
 
     if not needle:
         return False
