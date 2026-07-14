@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .db import connect, init_db, rows_to_dicts, upsert_worker, utc_now
+from .matching import matched_terms
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -40,12 +41,12 @@ def ffmpeg_path() -> str:
     return exe
 
 
-def active_terms() -> list[str]:
+def active_terms() -> list[dict]:
     with connect() as conn:
         rows = conn.execute(
-            "select term from terms where status != 'Pausado' and group_name != 'Negativo'"
+            "select * from terms where status != 'Pausado' and group_name != 'Negativo'"
         ).fetchall()
-    return [row["term"] for row in rows if row["term"]]
+    return rows_to_dicts(rows)
 
 
 def active_radios() -> list[dict]:
@@ -73,11 +74,6 @@ def transcribe(path: Path) -> str:
         _MODEL = WhisperModel(MODEL_NAME, device="cpu", compute_type="int8")
     segments, _ = _MODEL.transcribe(str(path), language="pt")
     return " ".join(segment.text.strip() for segment in segments).strip()
-
-
-def find_hits(text: str, terms: list[str]) -> list[str]:
-    normalized = text.lower()
-    return [term for term in terms if term.lower() in normalized]
 
 
 def now_iso() -> str:
@@ -166,29 +162,30 @@ async def record_after_window(radio: dict, slug: str) -> list[tuple[Path, str, s
 
 async def monitor_radio(radio: dict, slot: int, transcribe_gate: asyncio.Semaphore) -> None:
     slug = safe_slug(f"{radio['name']}-{radio.get('city', '')}")
+    radio_worker_id = f"{WORKER_ID}-radio-{radio['id']}"
     ring: deque[tuple[Path, str, str]] = deque(maxlen=BEFORE_CHUNKS + 1)
     last_hits: dict[str, float] = {}
     while True:
         terms = active_terms()
-        upsert_worker(WORKER_ID, "radio", "running", f"{radio['name']} ({slot})", {"radio_id": radio["id"]})
+        upsert_worker(radio_worker_id, "radio", "running", f"{radio['name']} ({slot})", {"radio_id": radio["id"]})
         chunk = BUFFER / slug / f"{int(time.time())}.wav"
         try:
             started_at, ended_at = await asyncio.to_thread(record_chunk, radio, chunk)
             ring.append((chunk, started_at, ended_at))
             async with transcribe_gate:
                 transcript = await asyncio.to_thread(transcribe, chunk)
-            for term in find_hits(transcript, terms):
+            for term in matched_terms(transcript, terms):
                 if time.time() - last_hits.get(term, 0) < HIT_COOLDOWN_SECONDS:
                     continue
                 last_hits[term] = time.time()
-                upsert_worker(WORKER_ID, "radio", "capturing", f"{radio['name']}: {term}", {"radio_id": radio["id"]})
+                upsert_worker(radio_worker_id, "radio", "capturing", f"{radio['name']}: {term}", {"radio_id": radio["id"]})
                 before_and_current = list(ring)
                 after = await record_after_window(radio, slug)
                 clip_chunks = before_and_current + after
                 clip = await asyncio.to_thread(concat_clip, radio, clip_chunks)
                 save_hit(radio, term, transcript, clip, clip_chunks[0][1], clip_chunks[-1][2])
         except Exception as exc:  # noqa: BLE001
-            upsert_worker(WORKER_ID, "radio", "warning", f"{radio['name']}: {exc}", {"radio_id": radio["id"]})
+            upsert_worker(radio_worker_id, "radio", "warning", f"{radio['name']}: {exc}", {"radio_id": radio["id"]})
             await asyncio.sleep(10)
 
 
@@ -199,10 +196,10 @@ async def supervisor() -> None:
         if MAX_RADIOS > 0:
             radios = radios[:MAX_RADIOS]
         if not radios:
-            upsert_worker(WORKER_ID, "radio", "idle", "Nenhuma radio ativa com stream")
+            upsert_worker(WORKER_ID, "radio", "idle", "Nenhuma rádio ativa com stream")
             await asyncio.sleep(30)
             continue
-        upsert_worker(WORKER_ID, "radio", "running", f"Monitorando {len(radios)} radios")
+        upsert_worker(WORKER_ID, "radio", "running", f"Monitorando {len(radios)} rádios")
         transcribe_gate = asyncio.Semaphore(max(1, TRANSCRIBE_CONCURRENCY))
         await asyncio.gather(*(monitor_radio(radio, index + 1, transcribe_gate) for index, radio in enumerate(radios)))
 

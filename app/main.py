@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 from pathlib import Path
@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .db import connect, init_db, rows_to_dicts, utc_now
+from .matching import search_query, term_matches
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +54,22 @@ def require_auth(x_radar_key: str | None = Header(default=None)) -> None:
         raise HTTPException(status_code=401, detail="Chave inválida")
 
 
+def filtered_online_mentions(limit: int = 300) -> list[dict]:
+    with connect() as conn:
+        terms = rows_to_dicts(conn.execute("select * from terms where status != 'Pausado'").fetchall())
+        rows = rows_to_dicts(conn.execute("select * from online_mentions order by created_at desc limit ?", (limit,)).fetchall())
+    terms_by_name = {term["term"]: term for term in terms}
+    filtered = []
+    for row in rows:
+        term = terms_by_name.get(row["term"])
+        if not term:
+            continue
+        searchable_text = " ".join([row.get("title", ""), row.get("summary", ""), row.get("source", "")])
+        if term_matches(term, searchable_text):
+            filtered.append(row)
+    return filtered
+
+
 @app.on_event("startup")
 def startup() -> None:
     init_db()
@@ -79,7 +96,7 @@ def dashboard() -> dict:
         terms = conn.execute("select count(*) from terms where status != 'Pausado'").fetchone()[0]
         radios = conn.execute("select count(*) from radios where media_type = 'Radio' and stream != ''").fetchone()[0]
         hits = conn.execute("select count(*) from radio_hits").fetchone()[0]
-        online = conn.execute("select count(*) from online_mentions").fetchone()[0]
+        online = len(filtered_online_mentions(1000))
         workers = rows_to_dicts(conn.execute("select * from worker_status order by last_seen desc").fetchall())
     return {"terms": terms, "radios": radios, "radio_hits": hits, "online_mentions": online, "workers": workers}
 
@@ -114,7 +131,7 @@ def update_term(term_id: int, payload: TermIn, x_radar_key: str | None = Header(
             (payload.term, payload.group_name, payload.match_type, payload.status, payload.priority, term_id),
         )
         if result.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Termo nao encontrado")
+            raise HTTPException(status_code=404, detail="Termo não encontrado")
     return {"ok": True}
 
 
@@ -124,7 +141,7 @@ def delete_term(term_id: int, x_radar_key: str | None = Header(default=None)) ->
     with connect() as conn:
         result = conn.execute("delete from terms where id = ?", (term_id,))
         if result.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Termo nao encontrado")
+            raise HTTPException(status_code=404, detail="Termo não encontrado")
     return {"ok": True}
 
 
@@ -170,7 +187,7 @@ def update_radio(radio_id: int, payload: RadioIn, x_radar_key: str | None = Head
             ),
         )
         if result.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Radio nao encontrada")
+            raise HTTPException(status_code=404, detail="Rádio não encontrada")
     return {"ok": True}
 
 
@@ -180,7 +197,7 @@ def delete_radio(radio_id: int, x_radar_key: str | None = Header(default=None)) 
     with connect() as conn:
         result = conn.execute("delete from radios where id = ?", (radio_id,))
         if result.rowcount == 0:
-            raise HTTPException(status_code=404, detail="Radio nao encontrada")
+            raise HTTPException(status_code=404, detail="Rádio não encontrada")
     return {"ok": True}
 
 
@@ -194,10 +211,7 @@ def radio_hits(limit: int = 100) -> list[dict]:
 
 @app.get("/api/online-mentions")
 def online_mentions(limit: int = 100) -> list[dict]:
-    with connect() as conn:
-        return rows_to_dicts(
-            conn.execute("select * from online_mentions order by created_at desc limit ?", (min(limit, 300),)).fetchall()
-        )
+    return filtered_online_mentions(min(limit, 300))
 
 
 @app.post("/api/search-online")
@@ -211,13 +225,18 @@ async def search_online(x_radar_key: str | None = Header(default=None)) -> dict:
     async with httpx.AsyncClient(timeout=15, headers={"user-agent": "InstitutoHomemRadar/1.0"}) as client:
         for term in terms:
             url = "https://news.google.com/rss/search"
-            params = {"q": term["term"], "hl": "pt-BR", "gl": "BR", "ceid": "BR:pt-419"}
+            params = {"q": search_query(term), "hl": "pt-BR", "gl": "BR", "ceid": "BR:pt-419"}
             try:
                 response = await client.get(url, params=params)
                 response.raise_for_status()
                 feed = feedparser.parse(response.text)
                 with connect() as conn:
                     for item in feed.entries[:8]:
+                        searchable_text = " ".join(
+                            [item.get("title", ""), item.get("summary", ""), item.get("source", {}).get("title", "") if isinstance(item.get("source"), dict) else ""]
+                        )
+                        if not term_matches(term, searchable_text):
+                            continue
                         conn.execute(
                             """
                             insert or ignore into online_mentions
@@ -238,3 +257,4 @@ async def search_online(x_radar_key: str | None = Header(default=None)) -> dict:
             except Exception as exc:  # noqa: BLE001
                 errors.append({"term": term["term"], "error": str(exc)})
     return {"ok": True, "saved": saved, "errors": errors}
+

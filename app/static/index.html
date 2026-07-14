@@ -244,8 +244,8 @@
         <button class="active" data-view="dashboard">Painel</button>
         <button data-view="terms">Termos</button>
         <button data-view="online">Resultados</button>
-        <button data-view="radio">Radio</button>
-        <button data-view="settings">Operacao</button>
+        <button data-view="radio">Rádio</button>
+        <button data-view="settings">Operação</button>
       </nav>
     </aside>
 
@@ -254,7 +254,7 @@
         <div>
           <div class="eyebrow">monitoramento 24h</div>
           <h1>Central online de monitoramento</h1>
-          <p>Termos, web, radio, workers e achados em uma operacao unica para a equipe.</p>
+          <p>Termos, web, rádio, workers e achados em uma operação única para a equipe.</p>
         </div>
         <button class="btn primary" id="refresh">Atualizar agora</button>
       </header>
@@ -262,15 +262,15 @@
       <section class="section active" id="dashboard">
         <div class="grid">
           <div class="panel metric"><div class="panel-body"><span>Termos ativos</span><strong id="mTerms">0</strong></div></div>
-          <div class="panel metric"><div class="panel-body"><span>Radios com stream</span><strong id="mRadios">0</strong></div></div>
-          <div class="panel metric"><div class="panel-body"><span>Achados de radio</span><strong id="mHits">0</strong></div></div>
+          <div class="panel metric"><div class="panel-body"><span>Rádios com stream</span><strong id="mRadios">0</strong></div></div>
+          <div class="panel metric"><div class="panel-body"><span>Achados de rádio</span><strong id="mHits">0</strong></div></div>
           <div class="panel metric"><div class="panel-body"><span>Resultados online</span><strong id="mOnline">0</strong></div></div>
           <div class="panel wide">
-            <div class="panel-head"><div><h2>Status dos workers</h2><p>Processos que mantem a operacao viva no servidor.</p></div></div>
+            <div class="panel-head"><div><h2>Status dos workers</h2><p>Processos que mantêm a operação viva no servidor.</p></div></div>
             <div class="panel-body"><div class="stack" id="workers"></div></div>
           </div>
           <div class="panel wide">
-            <div class="panel-head"><div><h2>Ultimos achados de radio</h2><p>Termos detectados nas emissoras monitoradas.</p></div></div>
+            <div class="panel-head"><div><h2>Últimos achados de rádio</h2><p>Termos detectados nas emissoras monitoradas.</p></div></div>
             <div class="panel-body"><div class="stack" id="latestHits"></div></div>
           </div>
         </div>
@@ -279,7 +279,7 @@
       <section class="section" id="terms">
         <div class="grid">
           <div class="panel full">
-            <div class="panel-head"><div><h2>Cadastrar termo</h2><p>A equipe pode alimentar e ajustar a base sem suporte tecnico.</p></div></div>
+            <div class="panel-head"><div><h2>Cadastrar termo</h2><p>A equipe pode alimentar e ajustar a base sem suporte técnico.</p></div></div>
             <div class="panel-body">
               <form id="termForm">
                 <div class="form-grid">
@@ -317,7 +317,7 @@
                       <option>Exclusao</option>
                     </select>
                   </label>
-                  <label class="full">Observacao
+                  <label class="full">Observação
                     <textarea id="termNote" placeholder="Por que esse termo existe? Quando deve virar alerta?"></textarea>
                   </label>
                 </div>
@@ -330,7 +330,7 @@
             </div>
           </div>
           <div class="panel full">
-            <div class="panel-head"><div><h2>Biblioteca de termos</h2><p>Base atual usada pelas buscas online e pelo monitoramento de radio.</p></div></div>
+            <div class="panel-head"><div><h2>Biblioteca de termos</h2><p>Base atual usada pelas buscas online e pelo monitoramento de rádio.</p></div></div>
             <div class="panel-body"><div class="table" id="termsList"></div></div>
           </div>
         </div>
@@ -349,7 +349,7 @@
       <section class="section" id="radio">
         <div class="grid">
           <div class="panel full">
-            <div class="panel-head"><div><h2>Cadastrar radio</h2><p>Adicione a emissora e cole o link direto do stream para o worker ouvir.</p></div></div>
+            <div class="panel-head"><div><h2>Cadastrar rádio</h2><p>Adicione a emissora e cole o link direto do stream para o worker ouvir.</p></div></div>
             <div class="panel-body">
               <form id="radioForm">
                 <div class="form-grid">
@@ -359,7 +359,7 @@
                   <label>Cidade
                     <input id="radioCity" placeholder="Ex.: Bauru">
                   </label>
-                  <label>Frequencia
+                  <label>Frequência
                     <input id="radioFrequency" placeholder="Ex.: 96,9 FM">
                   </label>
                   <label>Status
@@ -372,25 +372,25 @@
                   <label class="span-2">Stream
                     <input id="radioStream" placeholder="https://.../stream">
                   </label>
-                  <label class="full">Observacao
-                    <textarea id="radioNote" placeholder="Contrato, Tudo Radio, rateio, origem do link ou pendencias"></textarea>
+                  <label class="full">Observação
+                    <textarea id="radioNote" placeholder="Contrato, Tudo Rádio, rateio, origem do link ou pendências"></textarea>
                   </label>
                 </div>
                 <div class="toolbar">
                   <span class="notice" id="radioNotice"></span>
                   <button class="btn" id="cancelRadioEdit" type="button" hidden>Cancelar</button>
-                  <button class="btn primary" id="radioSubmit" type="submit">+ Adicionar radio</button>
+                  <button class="btn primary" id="radioSubmit" type="submit">+ Adicionar rádio</button>
                 </div>
               </form>
             </div>
           </div>
           <div class="panel full">
-            <div class="panel-head"><div><h2>Radios monitoradas</h2><p>Streams ativos que os workers podem ouvir.</p></div></div>
+            <div class="panel-head"><div><h2>Rádios monitoradas</h2><p>Streams ativos que os workers podem ouvir.</p></div></div>
             <div class="panel-body">
               <div class="live-player" id="livePlayer">
                 <div>
                   <span>Ouvindo ao vivo</span>
-                  <strong id="livePlayerName">Nenhuma radio selecionada</strong>
+                  <strong id="livePlayerName">Nenhuma rádio selecionada</strong>
                 </div>
                 <div class="player-actions">
                   <button class="btn primary" id="livePlay" type="button">Ouvir</button>
@@ -406,12 +406,12 @@
 
       <section class="section" id="settings">
         <div class="panel">
-          <div class="panel-head"><div><h2>Operacao 24h</h2><p>API, worker de radio, worker online, banco e storage persistente.</p></div></div>
+          <div class="panel-head"><div><h2>Operação 24h</h2><p>API, worker de rádio, worker online, banco e storage persistente.</p></div></div>
           <div class="panel-body">
             <div class="stack">
               <div class="item"><span class="pill green">API</span><h3>Painel online</h3><p>Este painel le dados do backend hospedado no Easypanel.</p></div>
-              <div class="item"><span class="pill green">Worker</span><h3>Radio 24h</h3><p>O worker escuta radios em paralelo, transcreve audio e salva achados no banco.</p></div>
-              <div class="item"><span class="pill gold">Escala</span><h3>Mais radios</h3><p>Aumente a concorrencia ou suba mais workers para cobrir toda a lista.</p></div>
+              <div class="item"><span class="pill green">Worker</span><h3>Rádio 24h</h3><p>O worker escuta rádios em paralelo, transcreve áudio e salva achados no banco.</p></div>
+              <div class="item"><span class="pill gold">Escala</span><h3>Mais rádios</h3><p>Aumente a concorrência ou suba mais workers para cobrir toda a lista.</p></div>
             </div>
           </div>
         </div>
@@ -488,7 +488,7 @@
     function resetRadioForm() {
       editingRadioId = null;
       $("radioForm").reset();
-      $("radioSubmit").textContent = "+ Adicionar radio";
+      $("radioSubmit").textContent = "+ Adicionar rádio";
       $("cancelRadioEdit").hidden = true;
     }
 
@@ -515,22 +515,22 @@
       $("workers").innerHTML = dash.workers.map(w => item(
         w.worker_id,
         `<span class="pill ${w.status === "running" ? "green" : "gold"}">${html(w.status)}</span>`,
-        `${w.current_task || ""} - ultimo sinal: ${w.last_seen}`
-      )).join("") || `<div class="item"><span class="pill red">offline</span><h3>Nenhum worker ativo</h3><p>Suba os servicos radio-worker e online-worker no Easypanel.</p></div>`;
+        `${w.current_task || ""} - último sinal: ${w.last_seen}`
+      )).join("") || `<div class="item"><span class="pill red">offline</span><h3>Nenhum worker ativo</h3><p>Suba os serviços radio-worker e online-worker no Easypanel.</p></div>`;
       $("latestHits").innerHTML = hits.slice(0, 8).map(h => item(
         `${h.radio_name} - ${h.term}`,
         `<span class="pill green">Detectado</span><span class="pill">${html(h.city)}</span>`,
-        `${h.started_at || ""}${h.ended_at ? " ate " + h.ended_at : ""} ${h.transcript || ""}`,
-        h.audio_path ? `<p><a href="${html(apiUrl(h.audio_path))}" target="_blank">Abrir audio</a></p>` : ""
-      )).join("") || `<div class="item"><h3>Nenhum achado de radio ainda</h3><p>Os workers vao preencher esta area automaticamente.</p></div>`;
+        `${h.started_at || ""}${h.ended_at ? " até " + h.ended_at : ""} ${h.transcript || ""}`,
+        h.audio_path ? `<p><a href="${html(apiUrl(h.audio_path))}" target="_blank">Abrir áudio</a></p>` : ""
+      )).join("") || `<div class="item"><h3>Nenhum achado de rádio ainda</h3><p>Os workers vão preencher esta área automaticamente.</p></div>`;
       $("onlineList").innerHTML = online.map(o => item(
         o.title,
         `<span class="pill">Online</span><span class="pill green">${html(o.term)}</span>`,
         `${o.source || ""} ${o.published || ""}`,
-        o.url ? `<p><a href="${html(o.url)}" target="_blank">Abrir noticia</a></p>` : ""
+        o.url ? `<p><a href="${html(o.url)}" target="_blank">Abrir notícia</a></p>` : ""
       )).join("") || `<div class="item"><h3>Nenhum resultado online ainda</h3><p>Clique em buscar agora ou aguarde o worker online.</p></div>`;
       $("radioList").innerHTML = radios.length ? `<div class="table">
-        <div class="row head"><div>Radio</div><div>Cidade</div><div>Status</div><div>Stream</div><div>Frequencia</div><div>Acoes</div></div>
+        <div class="row head"><div>Rádio</div><div>Cidade</div><div>Status</div><div>Stream</div><div>Frequência</div><div>Ações</div></div>
         ${radios.map(r => `
           <div class="row">
             <div><strong>${html(r.name)}</strong><p>${html(r.note || "")}</p></div>
@@ -545,8 +545,8 @@
             </div>
           </div>
         `).join("")}
-      </div>` : `<div class="item"><h3>Nenhuma radio cadastrada</h3><p>Adicione uma radio acima.</p></div>`;
-      $("termsList").innerHTML = `<div class="row head"><div>Termo</div><div>Grupo</div><div>Tipo</div><div>Status</div><div>Prioridade</div><div>Acoes</div></div>` + terms.map(t => `
+      </div>` : `<div class="item"><h3>Nenhuma rádio cadastrada</h3><p>Adicione uma rádio acima.</p></div>`;
+      $("termsList").innerHTML = `<div class="row head"><div>Termo</div><div>Grupo</div><div>Tipo</div><div>Status</div><div>Prioridade</div><div>Ações</div></div>` + terms.map(t => `
         <div class="row">
           <div><strong>${html(t.term)}</strong><p>${html(t.created_at || "")}</p></div>
           <div><span class="pill">${html(t.group_name)}</span></div>
@@ -579,7 +579,7 @@
         notice("termNotice", wasEditing ? "Termo atualizado." : "Termo salvo.");
         await refresh();
       } catch (error) {
-        notice("termNotice", "Nao consegui salvar este termo.", false);
+        notice("termNotice", "Não consegui salvar este termo.", false);
       }
     });
     $("radioForm").addEventListener("submit", async (event) => {
@@ -592,10 +592,10 @@
           body: JSON.stringify(radioPayload())
         });
         resetRadioForm();
-        notice("radioNotice", wasEditing ? "Radio atualizada." : "Radio salva.");
+        notice("radioNotice", wasEditing ? "Rádio atualizada." : "Rádio salva.");
         await refresh();
       } catch (error) {
-        notice("radioNotice", "Nao consegui salvar esta radio.", false);
+        notice("radioNotice", "Não consegui salvar esta rádio.", false);
       }
     });
 
@@ -625,7 +625,7 @@
         $("termStatus").value = term.status || "Ativo";
         $("termPriority").value = term.priority || "Alta";
         $("termMatch").value = term.match_type || "Exata";
-        $("termSubmit").textContent = "Salvar edicao";
+        $("termSubmit").textContent = "Salvar edição";
         $("cancelTermEdit").hidden = false;
         document.querySelector('[data-view="terms"]').click();
         $("termName").focus();
@@ -649,7 +649,7 @@
         $("radioStatus").value = radio.status || "Teste";
         $("radioStream").value = radio.stream || "";
         $("radioNote").value = radio.note || "";
-        $("radioSubmit").textContent = "Salvar edicao";
+        $("radioSubmit").textContent = "Salvar edição";
         $("cancelRadioEdit").hidden = false;
         document.querySelector('[data-view="radio"]').click();
         $("radioName").focus();
@@ -657,9 +657,9 @@
 
       if (deleteRadioId) {
         const radio = currentRadios.find(item => String(item.id) === String(deleteRadioId));
-        if (!radio || !confirm(`Excluir a radio "${radio.name}"?`)) return;
+        if (!radio || !confirm(`Excluir a rádio "${radio.name}"?`)) return;
         await loadJson(`/api/radios/${deleteRadioId}`, { method: "DELETE" });
-        notice("radioNotice", "Radio excluida.");
+        notice("radioNotice", "Rádio excluída.");
         await refresh();
       }
 
@@ -683,7 +683,7 @@
       try {
         await liveAudio.play();
       } catch (error) {
-        notice("radioNotice", "Nao consegui tocar este stream no navegador.", false);
+        notice("radioNotice", "Não consegui tocar este stream no navegador.", false);
       }
     });
 

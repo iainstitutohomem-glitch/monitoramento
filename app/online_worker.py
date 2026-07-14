@@ -7,6 +7,7 @@ import feedparser
 import httpx
 
 from .db import connect, init_db, rows_to_dicts, upsert_worker, utc_now
+from .matching import search_query, term_matches
 
 
 WORKER_ID = os.environ.get("RADAR_ONLINE_WORKER_ID", f"online-worker-{os.getpid()}")
@@ -26,12 +27,17 @@ async def run_once() -> int:
             upsert_worker(WORKER_ID, "online", "running", f"Buscando {term['term']}")
             response = await client.get(
                 "https://news.google.com/rss/search",
-                params={"q": term["term"], "hl": "pt-BR", "gl": "BR", "ceid": "BR:pt-419"},
+                params={"q": search_query(term), "hl": "pt-BR", "gl": "BR", "ceid": "BR:pt-419"},
             )
             response.raise_for_status()
             feed = feedparser.parse(response.text)
             with connect() as conn:
                 for item in feed.entries[:10]:
+                    searchable_text = " ".join(
+                        [item.get("title", ""), item.get("summary", ""), item.get("source", {}).get("title", "") if isinstance(item.get("source"), dict) else ""]
+                    )
+                    if not term_matches(term, searchable_text):
+                        continue
                     conn.execute(
                         """
                         insert or ignore into online_mentions
