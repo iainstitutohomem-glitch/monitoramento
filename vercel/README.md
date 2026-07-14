@@ -20,7 +20,15 @@ Essas partes ficam no backend Docker (`../docker-compose.yml`) em uma VPS/Render
 
 ## Configurar API
 
-Edite `public/config.js` e coloque a URL do backend:
+No painel da Vercel, configure a variável de ambiente:
+
+```text
+RADAR_API_URL=https://api-radar.seudominio.com.br
+```
+
+Isso gera automaticamente o `public/config.js` no build.
+
+Também dá para editar `public/config.js` manualmente:
 
 ```js
 window.RADAR_API_URL = "https://api-radar.seudominio.com.br";
