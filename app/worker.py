@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import time
 from collections import deque
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .db import connect, init_db, rows_to_dicts, upsert_worker, utc_now
@@ -16,9 +17,14 @@ ROOT = Path(__file__).resolve().parents[1]
 BUFFER = ROOT / "storage" / "buffer"
 AUDIO = ROOT / "storage" / "audio"
 WORKER_ID = os.environ.get("RADAR_WORKER_ID", f"radio-worker-{os.getpid()}")
-CONCURRENCY = int(os.environ.get("RADAR_CONCURRENCY", "4"))
+MAX_RADIOS = int(os.environ.get("RADAR_MAX_RADIOS", os.environ.get("RADAR_CONCURRENCY", "0")))
+TRANSCRIBE_CONCURRENCY = int(os.environ.get("RADAR_TRANSCRIBE_CONCURRENCY", "2"))
 CHUNK_SECONDS = int(os.environ.get("RADAR_CHUNK_SECONDS", "30"))
-BEFORE_CHUNKS = max(1, 120 // CHUNK_SECONDS)
+BEFORE_SECONDS = int(os.environ.get("RADAR_BEFORE_SECONDS", "120"))
+AFTER_SECONDS = int(os.environ.get("RADAR_AFTER_SECONDS", "120"))
+BEFORE_CHUNKS = max(1, BEFORE_SECONDS // CHUNK_SECONDS)
+AFTER_CHUNKS = max(1, AFTER_SECONDS // CHUNK_SECONDS)
+HIT_COOLDOWN_SECONDS = int(os.environ.get("RADAR_HIT_COOLDOWN_SECONDS", "240"))
 MODEL_NAME = os.environ.get("RADAR_WHISPER_MODEL", "tiny")
 _MODEL = None
 
@@ -74,8 +80,13 @@ def find_hits(text: str, terms: list[str]) -> list[str]:
     return [term for term in terms if term.lower() in normalized]
 
 
-def record_chunk(radio: dict, path: Path) -> None:
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def record_chunk(radio: dict, path: Path) -> tuple[str, str]:
     path.parent.mkdir(parents=True, exist_ok=True)
+    started_at = now_iso()
     command = [
         ffmpeg_path(),
         "-y",
@@ -93,14 +104,15 @@ def record_chunk(radio: dict, path: Path) -> None:
         str(path),
     ]
     subprocess.run(command, check=True, timeout=CHUNK_SECONDS + 40, capture_output=True, text=True)
+    return started_at, now_iso()
 
 
-def concat_clip(radio: dict, chunks: list[Path]) -> Path:
+def concat_clip(radio: dict, chunks: list[tuple[Path, str, str]]) -> Path:
     AUDIO.mkdir(parents=True, exist_ok=True)
     slug = safe_slug(f"{radio['name']}-{radio.get('city', '')}")
     output = AUDIO / f"{slug}-{int(time.time())}.wav"
     list_file = BUFFER / slug / f"concat-{int(time.time())}.txt"
-    list_file.write_text("".join(f"file '{chunk.as_posix()}'\n" for chunk in chunks), encoding="utf-8")
+    list_file.write_text("".join(f"file '{chunk[0].as_posix()}'\n" for chunk in chunks), encoding="utf-8")
     command = [
         ffmpeg_path(),
         "-y",
@@ -121,7 +133,7 @@ def concat_clip(radio: dict, chunks: list[Path]) -> Path:
     return output
 
 
-def save_hit(radio: dict, term: str, transcript: str, audio: Path) -> None:
+def save_hit(radio: dict, term: str, transcript: str, audio: Path, started_at: str, ended_at: str) -> None:
     with connect() as conn:
         conn.execute(
             """
@@ -136,27 +148,45 @@ def save_hit(radio: dict, term: str, transcript: str, audio: Path) -> None:
                 term,
                 transcript,
                 f"/audio/{audio.name}",
-                "",
-                "",
+                started_at,
+                ended_at,
                 utc_now(),
             ),
         )
 
 
-async def monitor_radio(radio: dict, slot: int) -> None:
+async def record_after_window(radio: dict, slug: str) -> list[tuple[Path, str, str]]:
+    chunks = []
+    for _ in range(AFTER_CHUNKS):
+        chunk = BUFFER / slug / f"{int(time.time())}.wav"
+        started_at, ended_at = await asyncio.to_thread(record_chunk, radio, chunk)
+        chunks.append((chunk, started_at, ended_at))
+    return chunks
+
+
+async def monitor_radio(radio: dict, slot: int, transcribe_gate: asyncio.Semaphore) -> None:
     slug = safe_slug(f"{radio['name']}-{radio.get('city', '')}")
-    ring: deque[Path] = deque(maxlen=BEFORE_CHUNKS + 1)
+    ring: deque[tuple[Path, str, str]] = deque(maxlen=BEFORE_CHUNKS + 1)
+    last_hits: dict[str, float] = {}
     while True:
         terms = active_terms()
         upsert_worker(WORKER_ID, "radio", "running", f"{radio['name']} ({slot})", {"radio_id": radio["id"]})
         chunk = BUFFER / slug / f"{int(time.time())}.wav"
         try:
-            await asyncio.to_thread(record_chunk, radio, chunk)
-            ring.append(chunk)
-            transcript = await asyncio.to_thread(transcribe, chunk)
+            started_at, ended_at = await asyncio.to_thread(record_chunk, radio, chunk)
+            ring.append((chunk, started_at, ended_at))
+            async with transcribe_gate:
+                transcript = await asyncio.to_thread(transcribe, chunk)
             for term in find_hits(transcript, terms):
-                clip = await asyncio.to_thread(concat_clip, radio, list(ring))
-                save_hit(radio, term, transcript, clip)
+                if time.time() - last_hits.get(term, 0) < HIT_COOLDOWN_SECONDS:
+                    continue
+                last_hits[term] = time.time()
+                upsert_worker(WORKER_ID, "radio", "capturing", f"{radio['name']}: {term}", {"radio_id": radio["id"]})
+                before_and_current = list(ring)
+                after = await record_after_window(radio, slug)
+                clip_chunks = before_and_current + after
+                clip = await asyncio.to_thread(concat_clip, radio, clip_chunks)
+                save_hit(radio, term, transcript, clip, clip_chunks[0][1], clip_chunks[-1][2])
         except Exception as exc:  # noqa: BLE001
             upsert_worker(WORKER_ID, "radio", "warning", f"{radio['name']}: {exc}", {"radio_id": radio["id"]})
             await asyncio.sleep(10)
@@ -165,13 +195,16 @@ async def monitor_radio(radio: dict, slot: int) -> None:
 async def supervisor() -> None:
     init_db()
     while True:
-        radios = active_radios()[:CONCURRENCY]
+        radios = active_radios()
+        if MAX_RADIOS > 0:
+            radios = radios[:MAX_RADIOS]
         if not radios:
             upsert_worker(WORKER_ID, "radio", "idle", "Nenhuma radio ativa com stream")
             await asyncio.sleep(30)
             continue
         upsert_worker(WORKER_ID, "radio", "running", f"Monitorando {len(radios)} radios")
-        await asyncio.gather(*(monitor_radio(radio, index + 1) for index, radio in enumerate(radios)))
+        transcribe_gate = asyncio.Semaphore(max(1, TRANSCRIBE_CONCURRENCY))
+        await asyncio.gather(*(monitor_radio(radio, index + 1, transcribe_gate) for index, radio in enumerate(radios)))
 
 
 def main() -> None:

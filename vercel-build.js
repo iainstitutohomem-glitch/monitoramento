@@ -14,6 +14,6 @@ if (!fs.existsSync(outputIndex)) {
 }
 fs.writeFileSync(
   path.join(publicDir, "config.js"),
-  `window.RADAR_API_URL = ${JSON.stringify(process.env.RADAR_API_URL || "")};\n`,
+  `window.RADAR_API_URL = ${JSON.stringify(process.env.RADAR_API_URL || "https://monitoramento.institutohomem.com.br")};\n`,
   "utf8"
 );

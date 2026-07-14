@@ -16,8 +16,11 @@ services:
     command: ["python", "-m", "app.worker"]
     environment:
       RADAR_DB: /app/storage/radar.db
-      RADAR_CONCURRENCY: "4"
+      RADAR_MAX_RADIOS: "0"
+      RADAR_TRANSCRIBE_CONCURRENCY: "2"
       RADAR_CHUNK_SECONDS: "30"
+      RADAR_BEFORE_SECONDS: "120"
+      RADAR_AFTER_SECONDS: "120"
       RADAR_PUBLIC_URL: http://localhost:8000
     volumes:
       - radar_storage:/app/storage

@@ -101,6 +101,33 @@ def create_term(payload: TermIn, x_radar_key: str | None = Header(default=None))
     return {"ok": True}
 
 
+@app.put("/api/terms/{term_id}")
+def update_term(term_id: int, payload: TermIn, x_radar_key: str | None = Header(default=None)) -> dict:
+    require_auth(x_radar_key)
+    with connect() as conn:
+        result = conn.execute(
+            """
+            update terms
+            set term = ?, group_name = ?, match_type = ?, status = ?, priority = ?
+            where id = ?
+            """,
+            (payload.term, payload.group_name, payload.match_type, payload.status, payload.priority, term_id),
+        )
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Termo nao encontrado")
+    return {"ok": True}
+
+
+@app.delete("/api/terms/{term_id}")
+def delete_term(term_id: int, x_radar_key: str | None = Header(default=None)) -> dict:
+    require_auth(x_radar_key)
+    with connect() as conn:
+        result = conn.execute("delete from terms where id = ?", (term_id,))
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Termo nao encontrado")
+    return {"ok": True}
+
+
 @app.get("/api/radios")
 def list_radios() -> list[dict]:
     with connect() as conn:
@@ -118,6 +145,42 @@ def create_radio(payload: RadioIn, x_radar_key: str | None = Header(default=None
             """,
             (payload.name, payload.city, payload.frequency, payload.status, payload.media_type, payload.stream, payload.note, utc_now()),
         )
+    return {"ok": True}
+
+
+@app.put("/api/radios/{radio_id}")
+def update_radio(radio_id: int, payload: RadioIn, x_radar_key: str | None = Header(default=None)) -> dict:
+    require_auth(x_radar_key)
+    with connect() as conn:
+        result = conn.execute(
+            """
+            update radios
+            set name = ?, city = ?, frequency = ?, status = ?, media_type = ?, stream = ?, note = ?
+            where id = ?
+            """,
+            (
+                payload.name,
+                payload.city,
+                payload.frequency,
+                payload.status,
+                payload.media_type,
+                payload.stream,
+                payload.note,
+                radio_id,
+            ),
+        )
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Radio nao encontrada")
+    return {"ok": True}
+
+
+@app.delete("/api/radios/{radio_id}")
+def delete_radio(radio_id: int, x_radar_key: str | None = Header(default=None)) -> dict:
+    require_auth(x_radar_key)
+    with connect() as conn:
+        result = conn.execute("delete from radios where id = ?", (radio_id,))
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Radio nao encontrada")
     return {"ok": True}
 
 
