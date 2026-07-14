@@ -1,0 +1,10 @@
+app/
+data/
+storage/
+Dockerfile
+docker-compose.yml
+requirements.txt
+.env
+.env.example
+README.md
+vercel/
