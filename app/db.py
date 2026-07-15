@@ -88,6 +88,19 @@ def init_db() -> None:
               created_at text not null
             );
 
+            create table if not exists radio_checks (
+              radio_id integer primary key,
+              radio_name text not null,
+              city text default '',
+              status text not null,
+              transcript text default '',
+              matched_terms text default '',
+              started_at text default '',
+              ended_at text default '',
+              error text default '',
+              updated_at text not null
+            );
+
             create table if not exists worker_status (
               worker_id text primary key,
               kind text not null,

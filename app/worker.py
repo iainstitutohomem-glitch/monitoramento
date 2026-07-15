@@ -151,6 +151,47 @@ def save_hit(radio: dict, term: str, transcript: str, audio: Path, started_at: s
         )
 
 
+def save_check(
+    radio: dict,
+    status: str,
+    transcript: str = "",
+    terms: list[str] | None = None,
+    started_at: str = "",
+    ended_at: str = "",
+    error: str = "",
+) -> None:
+    with connect() as conn:
+        conn.execute(
+            """
+            insert into radio_checks
+            (radio_id, radio_name, city, status, transcript, matched_terms, started_at, ended_at, error, updated_at)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            on conflict(radio_id) do update set
+              radio_name=excluded.radio_name,
+              city=excluded.city,
+              status=excluded.status,
+              transcript=excluded.transcript,
+              matched_terms=excluded.matched_terms,
+              started_at=excluded.started_at,
+              ended_at=excluded.ended_at,
+              error=excluded.error,
+              updated_at=excluded.updated_at
+            """,
+            (
+                radio["id"],
+                radio["name"],
+                radio.get("city", ""),
+                status,
+                transcript[:1200],
+                ", ".join(terms or []),
+                started_at,
+                ended_at,
+                error[:500],
+                utc_now(),
+            ),
+        )
+
+
 async def record_after_window(radio: dict, slug: str) -> list[tuple[Path, str, str]]:
     chunks = []
     for _ in range(AFTER_CHUNKS):
@@ -160,31 +201,53 @@ async def record_after_window(radio: dict, slug: str) -> list[tuple[Path, str, s
     return chunks
 
 
+async def analyze_chunk(
+    radio: dict,
+    radio_worker_id: str,
+    ring_snapshot: list[tuple[Path, str, str]],
+    chunk_meta: tuple[Path, str, str],
+    slug: str,
+    transcribe_gate: asyncio.Semaphore,
+    last_hits: dict[str, float],
+) -> None:
+    terms = active_terms()
+    try:
+        async with transcribe_gate:
+            transcript = await asyncio.to_thread(transcribe, chunk_meta[0])
+        hits = matched_terms(transcript, terms)
+        save_check(radio, "transcribed", transcript, hits, chunk_meta[1], chunk_meta[2])
+        for term in hits:
+            if time.time() - last_hits.get(term, 0) < HIT_COOLDOWN_SECONDS:
+                continue
+            last_hits[term] = time.time()
+            upsert_worker(radio_worker_id, "radio", "capturing", f"{radio['name']}: {term}", {"radio_id": radio["id"]})
+            after = await record_after_window(radio, slug)
+            clip_chunks = ring_snapshot + after
+            clip = await asyncio.to_thread(concat_clip, radio, clip_chunks)
+            save_hit(radio, term, transcript, clip, clip_chunks[0][1], clip_chunks[-1][2])
+    except Exception as exc:  # noqa: BLE001
+        save_check(radio, "warning", error=str(exc), started_at=chunk_meta[1], ended_at=chunk_meta[2])
+        upsert_worker(radio_worker_id, "radio", "warning", f"{radio['name']}: {exc}", {"radio_id": radio["id"]})
+
+
 async def monitor_radio(radio: dict, slot: int, transcribe_gate: asyncio.Semaphore) -> None:
     slug = safe_slug(f"{radio['name']}-{radio.get('city', '')}")
     radio_worker_id = f"{WORKER_ID}-radio-{radio['id']}"
     ring: deque[tuple[Path, str, str]] = deque(maxlen=BEFORE_CHUNKS + 1)
     last_hits: dict[str, float] = {}
     while True:
-        terms = active_terms()
         upsert_worker(radio_worker_id, "radio", "running", f"{radio['name']} ({slot})", {"radio_id": radio["id"]})
         chunk = BUFFER / slug / f"{int(time.time())}.wav"
         try:
             started_at, ended_at = await asyncio.to_thread(record_chunk, radio, chunk)
-            ring.append((chunk, started_at, ended_at))
-            async with transcribe_gate:
-                transcript = await asyncio.to_thread(transcribe, chunk)
-            for term in matched_terms(transcript, terms):
-                if time.time() - last_hits.get(term, 0) < HIT_COOLDOWN_SECONDS:
-                    continue
-                last_hits[term] = time.time()
-                upsert_worker(radio_worker_id, "radio", "capturing", f"{radio['name']}: {term}", {"radio_id": radio["id"]})
-                before_and_current = list(ring)
-                after = await record_after_window(radio, slug)
-                clip_chunks = before_and_current + after
-                clip = await asyncio.to_thread(concat_clip, radio, clip_chunks)
-                save_hit(radio, term, transcript, clip, clip_chunks[0][1], clip_chunks[-1][2])
+            chunk_meta = (chunk, started_at, ended_at)
+            ring.append(chunk_meta)
+            save_check(radio, "recorded", started_at=started_at, ended_at=ended_at)
+            asyncio.create_task(
+                analyze_chunk(radio, radio_worker_id, list(ring), chunk_meta, slug, transcribe_gate, last_hits)
+            )
         except Exception as exc:  # noqa: BLE001
+            save_check(radio, "warning", error=str(exc))
             upsert_worker(radio_worker_id, "radio", "warning", f"{radio['name']}: {exc}", {"radio_id": radio["id"]})
             await asyncio.sleep(10)
 

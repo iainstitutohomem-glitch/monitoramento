@@ -209,6 +209,14 @@ def radio_hits(limit: int = 100) -> list[dict]:
         )
 
 
+@app.get("/api/radio-checks")
+def radio_checks(limit: int = 100) -> list[dict]:
+    with connect() as conn:
+        return rows_to_dicts(
+            conn.execute("select * from radio_checks order by updated_at desc limit ?", (min(limit, 300),)).fetchall()
+        )
+
+
 @app.get("/api/online-mentions")
 def online_mentions(limit: int = 100) -> list[dict]:
     return filtered_online_mentions(min(limit, 300))

@@ -273,6 +273,10 @@
             <div class="panel-head"><div><h2>Últimos achados de rádio</h2><p>Termos detectados nas emissoras monitoradas.</p></div></div>
             <div class="panel-body"><div class="stack" id="latestHits"></div></div>
           </div>
+          <div class="panel full">
+            <div class="panel-head"><div><h2>Últimos trechos analisados</h2><p>Prova de escuta: últimos blocos gravados/transcritos por rádio.</p></div></div>
+            <div class="panel-body"><div class="stack" id="radioChecks"></div></div>
+          </div>
         </div>
       </section>
 
@@ -499,12 +503,13 @@
     }
 
     async function refresh() {
-      const [dash, hits, online, radios, terms] = await Promise.all([
+      const [dash, hits, online, radios, terms, checks] = await Promise.all([
         loadJson("/api/dashboard"),
         loadJson("/api/radio-hits"),
         loadJson("/api/online-mentions"),
         loadJson("/api/radios"),
-        loadJson("/api/terms")
+        loadJson("/api/terms"),
+        loadJson("/api/radio-checks")
       ]);
       $("mTerms").textContent = dash.terms;
       $("mRadios").textContent = dash.radios;
@@ -523,6 +528,11 @@
         `${h.started_at || ""}${h.ended_at ? " até " + h.ended_at : ""} ${h.transcript || ""}`,
         h.audio_path ? `<p><a href="${html(apiUrl(h.audio_path))}" target="_blank">Abrir áudio</a></p>` : ""
       )).join("") || `<div class="item"><h3>Nenhum achado de rádio ainda</h3><p>Os workers vão preencher esta área automaticamente.</p></div>`;
+      $("radioChecks").innerHTML = checks.slice(0, 12).map(c => item(
+        `${c.radio_name} - ${c.status}`,
+        `<span class="pill ${c.status === "transcribed" ? "green" : c.status === "warning" ? "red" : "gold"}">${html(c.status)}</span><span class="pill">${html(c.city)}</span>${c.matched_terms ? `<span class="pill green">${html(c.matched_terms)}</span>` : ""}`,
+        c.error || c.transcript || `Bloco gravado: ${c.started_at || ""} até ${c.ended_at || ""}`
+      )).join("") || `<div class="item"><h3>Nenhum trecho analisado ainda</h3><p>O radio-worker ainda não registrou transcrições.</p></div>`;
       $("onlineList").innerHTML = online.map(o => item(
         o.title,
         `<span class="pill">Online</span><span class="pill green">${html(o.term)}</span>`,
