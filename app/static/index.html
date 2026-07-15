@@ -202,6 +202,37 @@
       text-decoration: none;
     }
     .audio-proof:hover { color: #d7f3ff; }
+    .coverage-grid {
+      display:grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap:10px;
+    }
+    .coverage-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 13px;
+      background: rgba(255,255,255,.024);
+    }
+    .coverage-card strong {
+      display:block;
+      font-size: 28px;
+      line-height: 1;
+      margin: 8px 0;
+    }
+    .coverage-card span {
+      display:block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+    }
+    .coverage-card p {
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .coverage-card.good { border-color: rgba(77,215,130,.24); background: rgba(77,215,130,.055); }
+    .coverage-card.warn { border-color: rgba(231,185,79,.30); background: rgba(231,185,79,.06); }
+    .coverage-card.bad { border-color: rgba(255,107,114,.28); background: rgba(255,107,114,.06); }
     .pill {
       display:inline-flex;
       align-items:center;
@@ -263,6 +294,7 @@
       .shell { grid-template-columns: 1fr; }
       aside { position: static; height: auto; }
       .grid, .form-grid { grid-template-columns: 1fr; }
+      .coverage-grid { grid-template-columns: 1fr; }
       .wide, .full, .span-2 { grid-column: auto; }
       header { display:block; }
       .row { grid-template-columns: 1fr; }
@@ -307,11 +339,15 @@
             <div class="panel-body"><div class="stack" id="workers"></div></div>
           </div>
           <div class="panel wide">
+            <div class="panel-head"><div><h2>Cobertura 24h</h2><p>Mostra se as rádios estão gerando blocos recentes. Não é sorte: cada bloco gravado entra na fila de transcrição.</p></div></div>
+            <div class="panel-body"><div class="coverage-grid" id="coverageGrid"></div></div>
+          </div>
+          <div class="panel wide">
             <div class="panel-head"><div><h2>Últimos achados de rádio</h2><p>Termos detectados nas emissoras monitoradas.</p></div></div>
             <div class="panel-body"><div class="stack" id="latestHits"></div></div>
           </div>
           <div class="panel full">
-            <div class="panel-head"><div><h2>Últimos trechos analisados</h2><p>Prova de escuta: últimos blocos gravados/transcritos por rádio.</p></div></div>
+            <div class="panel-head"><div><h2>Último bloco por rádio</h2><p>Prova de escuta contínua: a tela mostra o bloco mais recente, mas o motor processa todos os blocos em sequência.</p></div></div>
             <div class="panel-body"><div class="stack" id="radioChecks"></div></div>
           </div>
         </div>
@@ -509,6 +545,35 @@
       return labels[status] || status || "Sem status";
     }
 
+    function minutesSince(value) {
+      const time = Date.parse(value || "");
+      if (!Number.isFinite(time)) return Infinity;
+      return Math.max(0, Math.round((Date.now() - time) / 60000));
+    }
+
+    function coverageCard(label, value, detail, tone = "") {
+      return `<div class="coverage-card ${tone}"><span>${html(label)}</span><strong>${html(value)}</strong><p>${html(detail)}</p></div>`;
+    }
+
+    function renderCoverage(radios, checks) {
+      const streamedRadios = radios.filter(r => r.stream && r.status !== "Pausada");
+      const recentChecks = checks.filter(c => minutesSince(c.updated_at) <= 3);
+      const recentTranscribed = checks.filter(c => c.status === "transcribed" && minutesSince(c.updated_at) <= 8);
+      const backlog = checks.filter(c => c.status === "backlog").length;
+      const warnings = checks.filter(c => c.status === "warning").length;
+      const missing = Math.max(0, streamedRadios.length - recentChecks.length);
+      const captureTone = missing === 0 && streamedRadios.length ? "good" : "warn";
+      const transcriptTone = recentTranscribed.length >= Math.max(1, Math.floor(streamedRadios.length * 0.75)) ? "good" : "warn";
+      const queueTone = backlog === 0 ? "good" : "bad";
+      const warningTone = warnings === 0 ? "good" : "bad";
+      $("coverageGrid").innerHTML = [
+        coverageCard("Captura recente", `${recentChecks.length}/${streamedRadios.length}`, missing ? `${missing} rádio(s) sem bloco recente nos últimos 3 min.` : "Todas as rádios com stream têm bloco recente.", captureTone),
+        coverageCard("Transcrição recente", `${recentTranscribed.length}/${streamedRadios.length}`, "Rádios com texto retornado pelo Whisper nos últimos 8 min.", transcriptTone),
+        coverageCard("Fila", backlog, backlog ? "Há blocos esperando transcrição. Pode atrasar achados." : "Sem sinal de fila cheia agora.", queueTone),
+        coverageCard("Falhas", warnings, warnings ? "Algumas rádios/streams precisam revisão." : "Sem erro recente de captura/transcrição.", warningTone)
+      ].join("");
+    }
+
     function notice(id, message, ok = true) {
       const el = $(id);
       el.textContent = message;
@@ -572,6 +637,7 @@
       $("mOnline").textContent = dash.online_mentions;
       currentTerms = terms;
       currentRadios = radios;
+      renderCoverage(radios, checks);
       $("workers").innerHTML = dash.workers.map(w => item(
         w.worker_id,
         `<span class="pill ${w.status === "running" ? "green" : "gold"}">${html(w.status)}</span>`,
