@@ -165,6 +165,43 @@
       border-radius:8px;
       padding:12px;
     }
+    .transcript-box {
+      margin-top: 10px;
+      padding: 11px 12px;
+      border: 1px solid rgba(59,157,255,.20);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(59,157,255,.08), rgba(255,255,255,.025));
+    }
+    .transcript-box b {
+      display: block;
+      color: #dcefff;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      letter-spacing: 1.4px;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+    .transcript-box p {
+      color: #f4f8fb;
+      font-size: 13px;
+      line-height: 1.45;
+      margin: 0;
+      white-space: pre-wrap;
+    }
+    .transcript-box.empty {
+      border-color: rgba(231,185,79,.24);
+      background: rgba(231,185,79,.06);
+    }
+    .audio-proof {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      margin-top: 10px;
+      color: #9fd1ff;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .audio-proof:hover { color: #d7f3ff; }
     .pill {
       display:inline-flex;
       align-items:center;
@@ -454,6 +491,24 @@
       return `<article class="item">${meta}<h3>${html(title)}</h3><p>${html(body || "")}</p>${extra}</article>`;
     }
 
+    function transcriptBox(text, emptyText = "Aguardando transcrição deste bloco.") {
+      const value = (text || "").trim();
+      if (!value) {
+        return `<div class="transcript-box empty"><b>Transcrição</b><p>${html(emptyText)}</p></div>`;
+      }
+      return `<div class="transcript-box"><b>Transcrição</b><p>${html(value)}</p></div>`;
+    }
+
+    function statusLabel(status) {
+      const labels = {
+        recorded: "Áudio gravado",
+        transcribed: "Transcrito",
+        warning: "Atenção",
+        backlog: "Fila cheia"
+      };
+      return labels[status] || status || "Sem status";
+    }
+
     function notice(id, message, ok = true) {
       const el = $(id);
       el.textContent = message;
@@ -525,14 +580,14 @@
       $("latestHits").innerHTML = hits.slice(0, 8).map(h => item(
         `${h.radio_name} - ${h.term}`,
         `<span class="pill green">Detectado</span><span class="pill">${html(h.city)}</span>`,
-        `${h.started_at || ""}${h.ended_at ? " até " + h.ended_at : ""} ${h.transcript || ""}`,
-        h.audio_path ? `<p><a href="${html(apiUrl(h.audio_path))}" target="_blank">Abrir áudio</a></p>` : ""
+        `${h.started_at || ""}${h.ended_at ? " até " + h.ended_at : ""}`,
+        `${transcriptBox(h.transcript, "Achado registrado, mas a transcrição ainda não foi salva.")}${h.audio_path ? `<a class="audio-proof" href="${html(apiUrl(h.audio_path))}" target="_blank">${icons.play} Abrir áudio do achado</a>` : ""}`
       )).join("") || `<div class="item"><h3>Nenhum achado de rádio ainda</h3><p>Os workers vão preencher esta área automaticamente.</p></div>`;
       $("radioChecks").innerHTML = checks.slice(0, 12).map(c => item(
-        `${c.radio_name} - ${c.status}`,
-        `<span class="pill ${c.status === "transcribed" ? "green" : c.status === "warning" ? "red" : "gold"}">${html(c.status)}</span><span class="pill">${html(c.city)}</span>${c.matched_terms ? `<span class="pill green">${html(c.matched_terms)}</span>` : ""}`,
-        c.error || c.transcript || `Bloco gravado: ${c.started_at || ""} até ${c.ended_at || ""}`,
-        c.last_audio_path ? `<p><a href="${html(apiUrl(c.last_audio_path))}" target="_blank">Ouvir último bloco</a></p>` : ""
+        `${c.radio_name} - ${statusLabel(c.status)}`,
+        `<span class="pill ${c.status === "transcribed" ? "green" : c.status === "warning" ? "red" : "gold"}">${html(statusLabel(c.status))}</span><span class="pill">${html(c.city)}</span>${c.matched_terms ? `<span class="pill green">${html(c.matched_terms)}</span>` : ""}`,
+        c.error || `Bloco: ${c.started_at || ""} até ${c.ended_at || ""}`,
+        `${transcriptBox(c.transcript, c.status === "recorded" ? "Áudio gravado. A transcrição ainda está na fila do Whisper." : "Nenhuma transcrição retornada para este bloco.")}${c.last_audio_path ? `<a class="audio-proof" href="${html(apiUrl(c.last_audio_path))}" target="_blank">${icons.play} Ouvir último bloco</a>` : ""}`
       )).join("") || `<div class="item"><h3>Nenhum trecho analisado ainda</h3><p>O radio-worker ainda não registrou transcrições.</p></div>`;
       $("onlineList").innerHTML = online.map(o => item(
         o.title,
