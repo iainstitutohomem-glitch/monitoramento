@@ -561,8 +561,8 @@
 
     function renderCoverage(radios, checks) {
       const streamedRadios = radios.filter(r => r.stream && r.status !== "Pausada");
-      const recentChecks = checks.filter(c => minutesSince(c.updated_at) <= 3);
-      const recentTranscribed = checks.filter(c => c.status === "transcribed" && minutesSince(c.updated_at) <= 8);
+      const recentChecks = checks.filter(c => minutesSince(c.last_recorded_at || c.updated_at) <= 3);
+      const recentTranscribed = checks.filter(c => minutesSince(c.last_transcribed_at) <= 8);
       const backlog = checks.filter(c => c.status === "backlog").length;
       const warnings = checks.filter(c => c.status === "warning").length;
       const missing = Math.max(0, streamedRadios.length - recentChecks.length);

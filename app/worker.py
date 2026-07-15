@@ -7,8 +7,7 @@ import shutil
 import socket
 import subprocess
 import time
-from collections import deque
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .db import connect, init_db, rows_to_dicts, upsert_worker, utc_now
@@ -27,8 +26,6 @@ MAX_PENDING_TRANSCRIPTS = int(os.environ.get("RADAR_MAX_PENDING_TRANSCRIPTS", "1
 CHUNK_SECONDS = int(os.environ.get("RADAR_CHUNK_SECONDS", "30"))
 BEFORE_SECONDS = int(os.environ.get("RADAR_BEFORE_SECONDS", "120"))
 AFTER_SECONDS = int(os.environ.get("RADAR_AFTER_SECONDS", "120"))
-BEFORE_CHUNKS = max(1, BEFORE_SECONDS // CHUNK_SECONDS)
-AFTER_CHUNKS = max(1, AFTER_SECONDS // CHUNK_SECONDS)
 HIT_COOLDOWN_SECONDS = int(os.environ.get("RADAR_HIT_COOLDOWN_SECONDS", "240"))
 MODEL_NAME = os.environ.get("RADAR_WHISPER_MODEL", "tiny")
 _MODEL = None
@@ -150,6 +147,95 @@ def save_probe_audio(radio: dict, chunk: Path) -> str:
     return f"/audio/{output.name}"
 
 
+def parse_iso(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def save_segment(radio: dict, chunk: Path, started_at: str, ended_at: str) -> int:
+    with connect() as conn:
+        cursor = conn.execute(
+            """
+            insert into radio_segments
+            (radio_id, radio_name, city, audio_path, status, started_at, ended_at, created_at, updated_at)
+            values (?, ?, ?, ?, 'recorded', ?, ?, ?, ?)
+            """,
+            (
+                radio["id"],
+                radio["name"],
+                radio.get("city", ""),
+                str(chunk),
+                started_at,
+                ended_at,
+                utc_now(),
+                utc_now(),
+            ),
+        )
+        return int(cursor.lastrowid)
+
+
+def update_segment(segment_id: int, status: str, transcript: str = "", terms: list[str] | None = None, error: str = "") -> None:
+    with connect() as conn:
+        conn.execute(
+            """
+            update radio_segments
+            set status = ?, transcript = ?, matched_terms = ?, error = ?, updated_at = ?
+            where id = ?
+            """,
+            (status, transcript[:2400], ", ".join(terms or []), error[:800], utc_now(), segment_id),
+        )
+
+
+def pending_segments(limit: int = 20) -> list[dict]:
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            select * from radio_segments
+            where status = 'recorded'
+            order by created_at asc
+            limit ?
+            """,
+            (limit,),
+        ).fetchall()
+    segments = rows_to_dicts(rows)
+    shard_radio_ids = {radio["id"] for radio in active_radios()}
+    return [segment for segment in segments if segment["radio_id"] in shard_radio_ids]
+
+
+def reset_stale_processing() -> None:
+    cutoff = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+    with connect() as conn:
+        conn.execute(
+            """
+            update radio_segments
+            set status = 'recorded', error = 'Retornado para fila apos reinicio/timeout', updated_at = ?
+            where status = 'processing' and updated_at < ?
+            """,
+            (utc_now(), cutoff),
+        )
+
+
+def clip_segments(radio_id: int, center_started_at: str, center_ended_at: str) -> list[tuple[Path, str, str]]:
+    start_window = parse_iso(center_started_at) - timedelta(seconds=BEFORE_SECONDS)
+    end_window = parse_iso(center_ended_at) + timedelta(seconds=AFTER_SECONDS)
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            select audio_path, started_at, ended_at from radio_segments
+            where radio_id = ?
+              and started_at <= ?
+              and ended_at >= ?
+            order by started_at asc
+            """,
+            (radio_id, end_window.isoformat(), start_window.isoformat()),
+        ).fetchall()
+    chunks: list[tuple[Path, str, str]] = []
+    for row in rows:
+        path = Path(row["audio_path"])
+        if path.exists():
+            chunks.append((path, row["started_at"], row["ended_at"]))
+    return chunks
+
+
 def save_hit(radio: dict, term: str, transcript: str, audio: Path, started_at: str, ended_at: str) -> None:
     with connect() as conn:
         conn.execute(
@@ -182,19 +268,27 @@ def save_check(
     ended_at: str = "",
     error: str = "",
 ) -> None:
+    last_recorded_at = ended_at if status in {"recorded", "backlog"} else ""
+    last_transcribed_at = ended_at if status == "transcribed" else ""
     with connect() as conn:
         conn.execute(
             """
             insert into radio_checks
-            (radio_id, radio_name, city, status, transcript, matched_terms, last_audio_path, started_at, ended_at, error, updated_at)
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (radio_id, radio_name, city, status, transcript, matched_terms, last_audio_path, last_recorded_at, last_transcribed_at, started_at, ended_at, error, updated_at)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             on conflict(radio_id) do update set
               radio_name=excluded.radio_name,
               city=excluded.city,
               status=excluded.status,
-              transcript=excluded.transcript,
-              matched_terms=excluded.matched_terms,
+              transcript=case when excluded.transcript != '' then excluded.transcript else radio_checks.transcript end,
+              matched_terms=case
+                when excluded.status = 'transcribed' then excluded.matched_terms
+                when excluded.matched_terms != '' then excluded.matched_terms
+                else radio_checks.matched_terms
+              end,
               last_audio_path=excluded.last_audio_path,
+              last_recorded_at=case when excluded.last_recorded_at != '' then excluded.last_recorded_at else radio_checks.last_recorded_at end,
+              last_transcribed_at=case when excluded.last_transcribed_at != '' then excluded.last_transcribed_at else radio_checks.last_transcribed_at end,
               started_at=excluded.started_at,
               ended_at=excluded.ended_at,
               error=excluded.error,
@@ -208,6 +302,8 @@ def save_check(
                 transcript[:1200],
                 ", ".join(terms or []),
                 last_audio_path,
+                last_recorded_at,
+                last_transcribed_at,
                 started_at,
                 ended_at,
                 error[:500],
@@ -216,21 +312,29 @@ def save_check(
         )
 
 
-async def record_after_window(radio: dict, slug: str) -> list[tuple[Path, str, str]]:
-    chunks = []
-    for _ in range(AFTER_CHUNKS):
-        chunk = BUFFER / slug / f"{int(time.time())}.wav"
-        started_at, ended_at = await asyncio.to_thread(record_chunk, radio, chunk)
-        chunks.append((chunk, started_at, ended_at))
-    return chunks
+async def finalize_hit_clip(radio: dict, term: str, transcript: str, center_started_at: str, center_ended_at: str) -> None:
+    await asyncio.sleep(AFTER_SECONDS + 3)
+    chunks = await asyncio.to_thread(clip_segments, radio["id"], center_started_at, center_ended_at)
+    if not chunks:
+        save_check(
+            radio,
+            "warning",
+            transcript,
+            [term],
+            started_at=center_started_at,
+            ended_at=center_ended_at,
+            error="Termo detectado, mas nenhum bloco de audio ficou disponivel para montar o clipe.",
+        )
+        return
+    clip = await asyncio.to_thread(concat_clip, radio, chunks)
+    save_hit(radio, term, transcript, clip, chunks[0][1], chunks[-1][2])
 
 
 async def analyze_chunk(
     radio: dict,
     radio_worker_id: str,
-    ring_snapshot: list[tuple[Path, str, str]],
+    segment_id: int,
     chunk_meta: tuple[Path, str, str],
-    slug: str,
     transcribe_gate: asyncio.Semaphore,
     last_hits: dict[str, float],
 ) -> None:
@@ -239,6 +343,7 @@ async def analyze_chunk(
         async with transcribe_gate:
             transcript = await asyncio.to_thread(transcribe, chunk_meta[0])
         hits = matched_terms(transcript, terms, radio_mode=True)
+        update_segment(segment_id, "matched" if hits else "transcribed", transcript, hits)
         probe_path = save_probe_audio(radio, chunk_meta[0])
         save_check(radio, "transcribed", transcript, hits, probe_path, chunk_meta[1], chunk_meta[2])
         for term in hits:
@@ -246,11 +351,9 @@ async def analyze_chunk(
                 continue
             last_hits[term] = time.time()
             upsert_worker(radio_worker_id, "radio", "capturing", f"{radio['name']}: {term}", {"radio_id": radio["id"]})
-            after = await record_after_window(radio, slug)
-            clip_chunks = ring_snapshot + after
-            clip = await asyncio.to_thread(concat_clip, radio, clip_chunks)
-            save_hit(radio, term, transcript, clip, clip_chunks[0][1], clip_chunks[-1][2])
+            asyncio.create_task(finalize_hit_clip(radio, term, transcript, chunk_meta[1], chunk_meta[2]))
     except Exception as exc:  # noqa: BLE001
+        update_segment(segment_id, "error", error=str(exc))
         save_check(radio, "warning", error=str(exc), started_at=chunk_meta[1], ended_at=chunk_meta[2])
         upsert_worker(radio_worker_id, "radio", "warning", f"{radio['name']}: {exc}", {"radio_id": radio["id"]})
 
@@ -258,7 +361,6 @@ async def analyze_chunk(
 async def monitor_radio(radio: dict, slot: int, transcribe_gate: asyncio.Semaphore) -> None:
     slug = safe_slug(f"{radio['name']}-{radio.get('city', '')}")
     radio_worker_id = f"{WORKER_ID}-radio-{radio['id']}"
-    ring: deque[tuple[Path, str, str]] = deque(maxlen=BEFORE_CHUNKS + 1)
     last_hits: dict[str, float] = {}
     while True:
         upsert_worker(radio_worker_id, "radio", "running", f"{radio['name']} ({slot})", {"radio_id": radio["id"]})
@@ -266,7 +368,7 @@ async def monitor_radio(radio: dict, slot: int, transcribe_gate: asyncio.Semapho
         try:
             started_at, ended_at = await asyncio.to_thread(record_chunk, radio, chunk)
             chunk_meta = (chunk, started_at, ended_at)
-            ring.append(chunk_meta)
+            segment_id = save_segment(radio, chunk, started_at, ended_at)
             probe_path = save_probe_audio(radio, chunk)
             save_check(radio, "recorded", last_audio_path=probe_path, started_at=started_at, ended_at=ended_at)
             if len(_PENDING_TRANSCRIPTS) >= MAX_PENDING_TRANSCRIPTS:
@@ -279,14 +381,49 @@ async def monitor_radio(radio: dict, slot: int, transcribe_gate: asyncio.Semapho
                 )
                 continue
             task = asyncio.create_task(
-                analyze_chunk(radio, radio_worker_id, list(ring), chunk_meta, slug, transcribe_gate, last_hits)
+                analyze_chunk(radio, radio_worker_id, segment_id, chunk_meta, transcribe_gate, last_hits)
             )
+            update_segment(segment_id, "processing")
             _PENDING_TRANSCRIPTS.add(task)
             task.add_done_callback(_PENDING_TRANSCRIPTS.discard)
         except Exception as exc:  # noqa: BLE001
             save_check(radio, "warning", error=str(exc))
             upsert_worker(radio_worker_id, "radio", "warning", f"{radio['name']}: {exc}", {"radio_id": radio["id"]})
             await asyncio.sleep(10)
+
+
+async def recover_recorded_segments(transcribe_gate: asyncio.Semaphore) -> None:
+    last_hits_by_radio: dict[int, dict[str, float]] = {}
+    while True:
+        try:
+            reset_stale_processing()
+            available_slots = MAX_PENDING_TRANSCRIPTS - len(_PENDING_TRANSCRIPTS)
+            if available_slots <= 0:
+                await asyncio.sleep(5)
+                continue
+            for segment in pending_segments(min(available_slots, 10)):
+                radio = {
+                    "id": segment["radio_id"],
+                    "name": segment["radio_name"],
+                    "city": segment.get("city", ""),
+                }
+                update_segment(segment["id"], "processing")
+                chunk_meta = (Path(segment["audio_path"]), segment["started_at"], segment["ended_at"])
+                task = asyncio.create_task(
+                    analyze_chunk(
+                        radio,
+                        f"{WORKER_ID}-recovery-{segment['radio_id']}",
+                        segment["id"],
+                        chunk_meta,
+                        transcribe_gate,
+                        last_hits_by_radio.setdefault(segment["radio_id"], {}),
+                    )
+                )
+                _PENDING_TRANSCRIPTS.add(task)
+                task.add_done_callback(_PENDING_TRANSCRIPTS.discard)
+        except Exception as exc:  # noqa: BLE001
+            upsert_worker(WORKER_ID, "radio", "warning", f"Recuperacao de fila: {exc}")
+        await asyncio.sleep(5)
 
 
 async def supervisor() -> None:
@@ -307,7 +444,10 @@ async def supervisor() -> None:
             {"pending_transcripts": len(_PENDING_TRANSCRIPTS), "shard_index": SHARD_INDEX, "shard_count": SHARD_COUNT},
         )
         transcribe_gate = asyncio.Semaphore(max(1, TRANSCRIBE_CONCURRENCY))
-        await asyncio.gather(*(monitor_radio(radio, index + 1, transcribe_gate) for index, radio in enumerate(radios)))
+        await asyncio.gather(
+            recover_recorded_segments(transcribe_gate),
+            *(monitor_radio(radio, index + 1, transcribe_gate) for index, radio in enumerate(radios)),
+        )
 
 
 def main() -> None:

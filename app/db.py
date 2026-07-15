@@ -22,8 +22,10 @@ def utc_now() -> str:
 @contextmanager
 def connect() -> Iterator[sqlite3.Connection]:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
+    conn.execute("pragma journal_mode=WAL")
+    conn.execute("pragma busy_timeout=30000")
     try:
         yield conn
         conn.commit()
@@ -96,11 +98,35 @@ def init_db() -> None:
               transcript text default '',
               matched_terms text default '',
               last_audio_path text default '',
+              last_recorded_at text default '',
+              last_transcribed_at text default '',
               started_at text default '',
               ended_at text default '',
               error text default '',
               updated_at text not null
             );
+
+            create table if not exists radio_segments (
+              id integer primary key autoincrement,
+              radio_id integer not null,
+              radio_name text not null,
+              city text default '',
+              audio_path text not null,
+              status text not null default 'recorded',
+              transcript text default '',
+              matched_terms text default '',
+              started_at text not null,
+              ended_at text not null,
+              error text default '',
+              created_at text not null,
+              updated_at text not null
+            );
+
+            create index if not exists idx_radio_segments_radio_time
+              on radio_segments (radio_id, started_at);
+
+            create index if not exists idx_radio_segments_status_time
+              on radio_segments (status, created_at);
 
             create table if not exists worker_status (
               worker_id text primary key,
@@ -115,6 +141,10 @@ def init_db() -> None:
         columns = {row["name"] for row in conn.execute("pragma table_info(radio_checks)").fetchall()}
         if "last_audio_path" not in columns:
             conn.execute("alter table radio_checks add column last_audio_path text default ''")
+        if "last_recorded_at" not in columns:
+            conn.execute("alter table radio_checks add column last_recorded_at text default ''")
+        if "last_transcribed_at" not in columns:
+            conn.execute("alter table radio_checks add column last_transcribed_at text default ''")
     seed_db()
 
 
