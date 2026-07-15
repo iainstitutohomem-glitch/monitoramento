@@ -10,14 +10,75 @@ services:
     volumes:
       - radar_storage:/app/storage
 
-  radio-worker:
+  radio-worker-1:
     build: .
     restart: unless-stopped
     command: ["python", "-m", "app.worker"]
     environment:
       RADAR_DB: /app/storage/radar.db
+      RADAR_WORKER_ID: radio-worker-1
+      RADAR_SHARD_INDEX: "0"
+      RADAR_SHARD_COUNT: "4"
       RADAR_MAX_RADIOS: "0"
       RADAR_TRANSCRIBE_CONCURRENCY: "2"
+      RADAR_MAX_PENDING_TRANSCRIPTS: "80"
+      RADAR_CHUNK_SECONDS: "30"
+      RADAR_BEFORE_SECONDS: "120"
+      RADAR_AFTER_SECONDS: "120"
+      RADAR_PUBLIC_URL: http://localhost:8000
+    volumes:
+      - radar_storage:/app/storage
+
+  radio-worker-2:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    environment:
+      RADAR_DB: /app/storage/radar.db
+      RADAR_WORKER_ID: radio-worker-2
+      RADAR_SHARD_INDEX: "1"
+      RADAR_SHARD_COUNT: "4"
+      RADAR_MAX_RADIOS: "0"
+      RADAR_TRANSCRIBE_CONCURRENCY: "2"
+      RADAR_MAX_PENDING_TRANSCRIPTS: "80"
+      RADAR_CHUNK_SECONDS: "30"
+      RADAR_BEFORE_SECONDS: "120"
+      RADAR_AFTER_SECONDS: "120"
+      RADAR_PUBLIC_URL: http://localhost:8000
+    volumes:
+      - radar_storage:/app/storage
+
+  radio-worker-3:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    environment:
+      RADAR_DB: /app/storage/radar.db
+      RADAR_WORKER_ID: radio-worker-3
+      RADAR_SHARD_INDEX: "2"
+      RADAR_SHARD_COUNT: "4"
+      RADAR_MAX_RADIOS: "0"
+      RADAR_TRANSCRIBE_CONCURRENCY: "2"
+      RADAR_MAX_PENDING_TRANSCRIPTS: "80"
+      RADAR_CHUNK_SECONDS: "30"
+      RADAR_BEFORE_SECONDS: "120"
+      RADAR_AFTER_SECONDS: "120"
+      RADAR_PUBLIC_URL: http://localhost:8000
+    volumes:
+      - radar_storage:/app/storage
+
+  radio-worker-4:
+    build: .
+    restart: unless-stopped
+    command: ["python", "-m", "app.worker"]
+    environment:
+      RADAR_DB: /app/storage/radar.db
+      RADAR_WORKER_ID: radio-worker-4
+      RADAR_SHARD_INDEX: "3"
+      RADAR_SHARD_COUNT: "4"
+      RADAR_MAX_RADIOS: "0"
+      RADAR_TRANSCRIBE_CONCURRENCY: "2"
+      RADAR_MAX_PENDING_TRANSCRIPTS: "80"
       RADAR_CHUNK_SECONDS: "30"
       RADAR_BEFORE_SECONDS: "120"
       RADAR_AFTER_SECONDS: "120"

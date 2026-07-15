@@ -531,7 +531,8 @@
       $("radioChecks").innerHTML = checks.slice(0, 12).map(c => item(
         `${c.radio_name} - ${c.status}`,
         `<span class="pill ${c.status === "transcribed" ? "green" : c.status === "warning" ? "red" : "gold"}">${html(c.status)}</span><span class="pill">${html(c.city)}</span>${c.matched_terms ? `<span class="pill green">${html(c.matched_terms)}</span>` : ""}`,
-        c.error || c.transcript || `Bloco gravado: ${c.started_at || ""} até ${c.ended_at || ""}`
+        c.error || c.transcript || `Bloco gravado: ${c.started_at || ""} até ${c.ended_at || ""}`,
+        c.last_audio_path ? `<p><a href="${html(apiUrl(c.last_audio_path))}" target="_blank">Ouvir último bloco</a></p>` : ""
       )).join("") || `<div class="item"><h3>Nenhum trecho analisado ainda</h3><p>O radio-worker ainda não registrou transcrições.</p></div>`;
       $("onlineList").innerHTML = online.map(o => item(
         o.title,

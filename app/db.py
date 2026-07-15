@@ -95,6 +95,7 @@ def init_db() -> None:
               status text not null,
               transcript text default '',
               matched_terms text default '',
+              last_audio_path text default '',
               started_at text default '',
               ended_at text default '',
               error text default '',
@@ -111,6 +112,9 @@ def init_db() -> None:
             );
             """
         )
+        columns = {row["name"] for row in conn.execute("pragma table_info(radio_checks)").fetchall()}
+        if "last_audio_path" not in columns:
+            conn.execute("alter table radio_checks add column last_audio_path text default ''")
     seed_db()
 
 

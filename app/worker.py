@@ -4,6 +4,7 @@ import asyncio
 import os
 import re
 import shutil
+import socket
 import subprocess
 import time
 from collections import deque
@@ -17,9 +18,12 @@ from .matching import matched_terms
 ROOT = Path(__file__).resolve().parents[1]
 BUFFER = ROOT / "storage" / "buffer"
 AUDIO = ROOT / "storage" / "audio"
-WORKER_ID = os.environ.get("RADAR_WORKER_ID", f"radio-worker-{os.getpid()}")
+WORKER_ID = os.environ.get("RADAR_WORKER_ID", f"radio-worker-{socket.gethostname()}-{os.getpid()}")
 MAX_RADIOS = int(os.environ.get("RADAR_MAX_RADIOS", os.environ.get("RADAR_CONCURRENCY", "0")))
 TRANSCRIBE_CONCURRENCY = int(os.environ.get("RADAR_TRANSCRIBE_CONCURRENCY", "2"))
+SHARD_INDEX = int(os.environ.get("RADAR_SHARD_INDEX", "0"))
+SHARD_COUNT = max(1, int(os.environ.get("RADAR_SHARD_COUNT", "1")))
+MAX_PENDING_TRANSCRIPTS = int(os.environ.get("RADAR_MAX_PENDING_TRANSCRIPTS", "120"))
 CHUNK_SECONDS = int(os.environ.get("RADAR_CHUNK_SECONDS", "30"))
 BEFORE_SECONDS = int(os.environ.get("RADAR_BEFORE_SECONDS", "120"))
 AFTER_SECONDS = int(os.environ.get("RADAR_AFTER_SECONDS", "120"))
@@ -28,6 +32,7 @@ AFTER_CHUNKS = max(1, AFTER_SECONDS // CHUNK_SECONDS)
 HIT_COOLDOWN_SECONDS = int(os.environ.get("RADAR_HIT_COOLDOWN_SECONDS", "240"))
 MODEL_NAME = os.environ.get("RADAR_WHISPER_MODEL", "tiny")
 _MODEL = None
+_PENDING_TRANSCRIPTS: set[asyncio.Task] = set()
 
 
 def safe_slug(value: str) -> str:
@@ -37,7 +42,7 @@ def safe_slug(value: str) -> str:
 def ffmpeg_path() -> str:
     exe = shutil.which("ffmpeg")
     if not exe:
-        raise RuntimeError("ffmpeg nao encontrado no servidor")
+        raise RuntimeError("ffmpeg não encontrado no servidor")
     return exe
 
 
@@ -60,7 +65,15 @@ def active_radios() -> list[dict]:
             order by city, name
             """
         ).fetchall()
-    return rows_to_dicts(rows)
+    radios = rows_to_dicts(rows)
+    return [radio for index, radio in enumerate(radios) if index % SHARD_COUNT == SHARD_INDEX]
+
+
+def terms_prompt() -> str:
+    terms = [term["term"] for term in active_terms() if term.get("term")]
+    if not terms:
+        return ""
+    return "Termos importantes para reconhecer: " + ", ".join(terms[:30])
 
 
 def transcribe(path: Path) -> str:
@@ -68,11 +81,11 @@ def transcribe(path: Path) -> str:
     try:
         from faster_whisper import WhisperModel
     except Exception as exc:  # noqa: BLE001
-        raise RuntimeError("faster-whisper nao instalado no worker") from exc
+        raise RuntimeError("faster-whisper não instalado no worker") from exc
 
     if _MODEL is None:
         _MODEL = WhisperModel(MODEL_NAME, device="cpu", compute_type="int8")
-    segments, _ = _MODEL.transcribe(str(path), language="pt")
+    segments, _ = _MODEL.transcribe(str(path), language="pt", initial_prompt=terms_prompt())
     return " ".join(segment.text.strip() for segment in segments).strip()
 
 
@@ -129,6 +142,14 @@ def concat_clip(radio: dict, chunks: list[tuple[Path, str, str]]) -> Path:
     return output
 
 
+def save_probe_audio(radio: dict, chunk: Path) -> str:
+    AUDIO.mkdir(parents=True, exist_ok=True)
+    slug = safe_slug(f"probe-{radio['id']}-{radio['name']}-{radio.get('city', '')}")
+    output = AUDIO / f"{slug}.wav"
+    shutil.copyfile(chunk, output)
+    return f"/audio/{output.name}"
+
+
 def save_hit(radio: dict, term: str, transcript: str, audio: Path, started_at: str, ended_at: str) -> None:
     with connect() as conn:
         conn.execute(
@@ -156,6 +177,7 @@ def save_check(
     status: str,
     transcript: str = "",
     terms: list[str] | None = None,
+    last_audio_path: str = "",
     started_at: str = "",
     ended_at: str = "",
     error: str = "",
@@ -164,14 +186,15 @@ def save_check(
         conn.execute(
             """
             insert into radio_checks
-            (radio_id, radio_name, city, status, transcript, matched_terms, started_at, ended_at, error, updated_at)
-            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (radio_id, radio_name, city, status, transcript, matched_terms, last_audio_path, started_at, ended_at, error, updated_at)
+            values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             on conflict(radio_id) do update set
               radio_name=excluded.radio_name,
               city=excluded.city,
               status=excluded.status,
               transcript=excluded.transcript,
               matched_terms=excluded.matched_terms,
+              last_audio_path=excluded.last_audio_path,
               started_at=excluded.started_at,
               ended_at=excluded.ended_at,
               error=excluded.error,
@@ -184,6 +207,7 @@ def save_check(
                 status,
                 transcript[:1200],
                 ", ".join(terms or []),
+                last_audio_path,
                 started_at,
                 ended_at,
                 error[:500],
@@ -214,8 +238,9 @@ async def analyze_chunk(
     try:
         async with transcribe_gate:
             transcript = await asyncio.to_thread(transcribe, chunk_meta[0])
-        hits = matched_terms(transcript, terms)
-        save_check(radio, "transcribed", transcript, hits, chunk_meta[1], chunk_meta[2])
+        hits = matched_terms(transcript, terms, radio_mode=True)
+        probe_path = save_probe_audio(radio, chunk_meta[0])
+        save_check(radio, "transcribed", transcript, hits, probe_path, chunk_meta[1], chunk_meta[2])
         for term in hits:
             if time.time() - last_hits.get(term, 0) < HIT_COOLDOWN_SECONDS:
                 continue
@@ -242,10 +267,22 @@ async def monitor_radio(radio: dict, slot: int, transcribe_gate: asyncio.Semapho
             started_at, ended_at = await asyncio.to_thread(record_chunk, radio, chunk)
             chunk_meta = (chunk, started_at, ended_at)
             ring.append(chunk_meta)
-            save_check(radio, "recorded", started_at=started_at, ended_at=ended_at)
-            asyncio.create_task(
+            probe_path = save_probe_audio(radio, chunk)
+            save_check(radio, "recorded", last_audio_path=probe_path, started_at=started_at, ended_at=ended_at)
+            if len(_PENDING_TRANSCRIPTS) >= MAX_PENDING_TRANSCRIPTS:
+                save_check(
+                    radio,
+                    "backlog",
+                    started_at=started_at,
+                    ended_at=ended_at,
+                    error=f"Fila de transcrição cheia: {len(_PENDING_TRANSCRIPTS)} pendentes",
+                )
+                continue
+            task = asyncio.create_task(
                 analyze_chunk(radio, radio_worker_id, list(ring), chunk_meta, slug, transcribe_gate, last_hits)
             )
+            _PENDING_TRANSCRIPTS.add(task)
+            task.add_done_callback(_PENDING_TRANSCRIPTS.discard)
         except Exception as exc:  # noqa: BLE001
             save_check(radio, "warning", error=str(exc))
             upsert_worker(radio_worker_id, "radio", "warning", f"{radio['name']}: {exc}", {"radio_id": radio["id"]})
@@ -262,7 +299,13 @@ async def supervisor() -> None:
             upsert_worker(WORKER_ID, "radio", "idle", "Nenhuma rádio ativa com stream")
             await asyncio.sleep(30)
             continue
-        upsert_worker(WORKER_ID, "radio", "running", f"Monitorando {len(radios)} rádios")
+        upsert_worker(
+            WORKER_ID,
+            "radio",
+            "running",
+            f"Monitorando {len(radios)} rádios no shard {SHARD_INDEX + 1}/{SHARD_COUNT}",
+            {"pending_transcripts": len(_PENDING_TRANSCRIPTS), "shard_index": SHARD_INDEX, "shard_count": SHARD_COUNT},
+        )
         transcribe_gate = asyncio.Semaphore(max(1, TRANSCRIBE_CONCURRENCY))
         await asyncio.gather(*(monitor_radio(radio, index + 1, transcribe_gate) for index, radio in enumerate(radios)))
 
@@ -273,3 +316,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
