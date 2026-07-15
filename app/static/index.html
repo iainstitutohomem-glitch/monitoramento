@@ -343,6 +343,10 @@
             <div class="panel-body"><div class="coverage-grid" id="coverageGrid"></div></div>
           </div>
           <div class="panel wide">
+            <div class="panel-head"><div><h2>Falhas recentes</h2><p>Rádios que retornaram erro de stream, gravação ou transcrição.</p></div></div>
+            <div class="panel-body"><div class="stack" id="warningList"></div></div>
+          </div>
+          <div class="panel wide">
             <div class="panel-head"><div><h2>Últimos achados de rádio</h2><p>Termos detectados nas emissoras monitoradas.</p></div></div>
             <div class="panel-body"><div class="stack" id="latestHits"></div></div>
           </div>
@@ -574,6 +578,17 @@
       ].join("");
     }
 
+    function renderWarnings(checks) {
+      const warnings = checks
+        .filter(c => c.status === "warning" || c.status === "backlog")
+        .sort((a, b) => Date.parse(b.updated_at || "") - Date.parse(a.updated_at || ""));
+      $("warningList").innerHTML = warnings.slice(0, 8).map(c => item(
+        c.radio_name || "Rádio sem nome",
+        `<span class="pill ${c.status === "backlog" ? "gold" : "red"}">${html(statusLabel(c.status))}</span><span class="pill">${html(c.city || "-")}</span>`,
+        `${c.error || "Sem mensagem técnica registrada."} Último sinal: ${c.updated_at || "-"}`
+      )).join("") || `<div class="item"><span class="pill green">ok</span><h3>Nenhuma falha recente</h3><p>Streams e transcrições sem erro no status atual.</p></div>`;
+    }
+
     function notice(id, message, ok = true) {
       const el = $(id);
       el.textContent = message;
@@ -638,6 +653,7 @@
       currentTerms = terms;
       currentRadios = radios;
       renderCoverage(radios, checks);
+      renderWarnings(checks);
       $("workers").innerHTML = dash.workers.map(w => item(
         w.worker_id,
         `<span class="pill ${w.status === "running" ? "green" : "gold"}">${html(w.status)}</span>`,
